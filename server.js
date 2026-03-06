@@ -1111,7 +1111,18 @@ app.get('/passxbox/:linkId', (req, res) => {
   });
 });
 
-// API: Obter URL de redirecionamento
+// API: Obter URL de redirecionamento (compatibilidade)
+app.get('/api/redirect/:linkId', (req, res) => {
+  const { linkId } = req.params;
+  db.get('SELECT original_url FROM links WHERE id = ?', [linkId], (err, row) => {
+    if (err || !row) {
+      return res.status(404).json({ error: 'Link não encontrado' });
+    }
+    res.json({ redirectUrl: row.original_url });
+  });
+});
+
+// API: Obter URL de redirecionamento (alternativa)
 app.get('/api/get-redirect/:linkId', (req, res) => {
   const { linkId } = req.params;
   db.get('SELECT original_url FROM links WHERE id = ?', [linkId], (err, row) => {
