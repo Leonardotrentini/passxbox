@@ -82,7 +82,7 @@ db.serialize(() => {
 function httpRequest(url) {
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
-    protocol.get(url, (res) => {
+    const req = protocol.get(url, (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
@@ -92,11 +92,55 @@ function httpRequest(url) {
           reject(e);
         }
       });
-    }).on('error', reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(3000, () => {
+      req.destroy();
+      reject(new Error('Timeout'));
+    });
   });
 }
 
-// Função para detectar VPN/Proxy usando APIs externas
+// Obter dados geográficos adicionais
+async function getAdditionalGeoData(ip) {
+  try {
+    const data = await httpRequest(`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,query`);
+    if (data.status === 'success') {
+      return {
+        country: data.country,
+        countryCode: data.countryCode,
+        region: data.regionName,
+        regionCode: data.region,
+        city: data.city,
+        zip: data.zip,
+        latitude: data.lat,
+        longitude: data.lon,
+        timezone: data.timezone,
+        isp: data.isp,
+        organization: data.org,
+        asn: data.as,
+        source: 'ip-api.com'
+      };
+    }
+  } catch (e) {
+    // Ignorar erros
+  }
+  return null;
+}
+
+// Obter nome do país
+function getCountryName(code) {
+  const countries = {
+    'BR': 'Brasil', 'US': 'Estados Unidos', 'GB': 'Reino Unido',
+    'CA': 'Canadá', 'AU': 'Austrália', 'DE': 'Alemanha',
+    'FR': 'França', 'IT': 'Itália', 'ES': 'Espanha',
+    'PT': 'Portugal', 'MX': 'México', 'AR': 'Argentina',
+    'CL': 'Chile', 'CO': 'Colômbia', 'PE': 'Peru'
+  };
+  return countries[code] || code;
+}
+
+// Função EXPANDIDA para detectar VPN/Proxy usando múltiplas APIs
 async function detectVPNProxy(ip) {
   const results = {
     isVPN: false,
@@ -104,25 +148,46 @@ async function detectVPNProxy(ip) {
     isTor: false,
     provider: null,
     confidence: 0,
-    sources: []
+    sources: [],
+    details: {
+      organization: null,
+      asn: null,
+      type: null,
+      isDatacenter: false,
+      isHosting: false,
+      isMobile: false,
+      isResidential: false
+    }
   };
 
   // API 1: ipapi.co (gratuita, limitada)
   try {
     const ipapiData = await httpRequest(`https://ipapi.co/${ip}/json/`);
-    if (ipapiData.org && (ipapiData.org.toLowerCase().includes('vpn') || 
-        ipapiData.org.toLowerCase().includes('proxy') ||
-        ipapiData.org.toLowerCase().includes('hosting'))) {
-      results.isVPN = true;
-      results.provider = ipapiData.org;
-      results.confidence += 30;
-      results.sources.push('ipapi.co');
+    if (ipapiData.org) {
+      const orgLower = ipapiData.org.toLowerCase();
+      if (orgLower.includes('vpn') || orgLower.includes('proxy') || 
+          orgLower.includes('hosting') || orgLower.includes('datacenter')) {
+        results.isVPN = orgLower.includes('vpn');
+        results.isProxy = orgLower.includes('proxy');
+        results.provider = ipapiData.org;
+        results.confidence += 30;
+        results.sources.push('ipapi.co');
+        results.details.organization = ipapiData.org;
+        results.details.isHosting = orgLower.includes('hosting') || orgLower.includes('datacenter');
+      }
+      if (ipapiData.org_type) {
+        results.details.type = ipapiData.org_type;
+        if (ipapiData.org_type === 'hosting') results.details.isDatacenter = true;
+        if (ipapiData.org_type === 'mobile') results.details.isMobile = true;
+        if (ipapiData.org_type === 'isp') results.details.isResidential = true;
+      }
     }
+    if (ipapiData.asn) results.details.asn = ipapiData.asn;
   } catch (e) {
     // Ignorar erros de API
   }
 
-  // API 2: ip-api.com (gratuita)
+  // API 2: ip-api.com (gratuita) - Mais completa
   try {
     const ipApiData = await httpRequest(`http://ip-api.com/json/${ip}?fields=66846719`);
     if (ipApiData.proxy === true || ipApiData.hosting === true) {
@@ -130,61 +195,180 @@ async function detectVPNProxy(ip) {
       results.isVPN = ipApiData.hosting || false;
       results.confidence += 40;
       results.sources.push('ip-api.com');
+      results.details.isHosting = ipApiData.hosting || false;
     }
     if (ipApiData.org) {
       const orgLower = ipApiData.org.toLowerCase();
+      results.details.organization = ipApiData.org;
       if (orgLower.includes('tor') || orgLower.includes('onion')) {
         results.isTor = true;
         results.confidence += 50;
       }
+      if (orgLower.includes('vpn') || orgLower.includes('proxy')) {
+        results.isVPN = orgLower.includes('vpn');
+        results.isProxy = orgLower.includes('proxy');
+        results.provider = ipApiData.org;
+      }
+    }
+    if (ipApiData.as) results.details.asn = ipApiData.as;
+    if (ipApiData.mobile) results.details.isMobile = true;
+  } catch (e) {
+    // Ignorar erros de API
+  }
+
+  // API 3: ipinfo.io (gratuita, limitada)
+  try {
+    const ipinfoData = await httpRequest(`https://ipinfo.io/${ip}/json`);
+    if (ipinfoData.org) {
+      const orgLower = ipinfoData.org.toLowerCase();
+      if (orgLower.includes('vpn') || orgLower.includes('proxy') || 
+          orgLower.includes('hosting') || orgLower.includes('datacenter')) {
+        if (!results.provider) results.provider = ipinfoData.org;
+        results.confidence += 20;
+        results.sources.push('ipinfo.io');
+        if (!results.details.organization) results.details.organization = ipinfoData.org;
+      }
+    }
+    if (ipinfoData.org && ipinfoData.org.includes('AS')) {
+      results.details.asn = ipinfoData.org;
     }
   } catch (e) {
     // Ignorar erros de API
   }
 
-  // Verificar padrões conhecidos de VPN/Proxy via geoip
+  // Verificar padrões conhecidos via geoip
   const geo = geoip.lookup(ip);
   if (geo) {
-    // Verificar se IP está em datacenter conhecido
-    // (implementação básica - pode ser expandida)
+    // Verificar se IP está em range conhecido de datacenters
+    // Lista de ASNs conhecidos de VPN/Proxy (exemplos)
+    const vpnAsns = ['AS20473', 'AS32934', 'AS60068']; // Exemplos
+    // Verificar organização conhecida
+    if (geo.org) {
+      const orgLower = geo.org.toLowerCase();
+      if (orgLower.includes('amazon') || orgLower.includes('google') || 
+          orgLower.includes('microsoft') || orgLower.includes('digitalocean') ||
+          orgLower.includes('linode') || orgLower.includes('vultr')) {
+        results.details.isDatacenter = true;
+        results.details.isHosting = true;
+        results.confidence += 15;
+      }
+    }
+  }
+
+  // Análise de padrões no IP
+  // IPs de datacenters conhecidos geralmente têm padrões específicos
+  const ipParts = ip.split('.');
+  if (ipParts.length === 4) {
+    const firstOctet = parseInt(ipParts[0]);
+    // Ranges comuns de datacenters
+    if (firstOctet === 10 || (firstOctet >= 172 && firstOctet <= 172) || 
+        (firstOctet >= 192 && firstOctet <= 192)) {
+      // IP privado - não é público, mas pode indicar proxy
+    }
   }
 
   return results;
 }
 
-// Função para calcular score de risco
+// Função EXPANDIDA para calcular score de risco (MÁXIMO)
 function calculateRiskScore(data, vpnProxy) {
   let score = 0;
+  const factors = [];
 
-  // VPN/Proxy aumenta risco
-  if (vpnProxy.isVPN || vpnProxy.isProxy) score += 30;
-  if (vpnProxy.isTor) score += 50;
+  // VPN/Proxy aumenta risco significativamente
+  if (vpnProxy.isVPN) {
+    score += 30;
+    factors.push('VPN detectada');
+  }
+  if (vpnProxy.isProxy) {
+    score += 30;
+    factors.push('Proxy detectado');
+  }
+  if (vpnProxy.isTor) {
+    score += 50;
+    factors.push('Tor detectado - RISCO MÁXIMO');
+  }
+  if (vpnProxy.details && vpnProxy.details.isDatacenter) {
+    score += 15;
+    factors.push('IP de datacenter');
+  }
 
-  // Comportamento suspeito
+  // Comportamento suspeito (EXPANDIDO)
   if (data.behavior && data.behavior.suspiciousBehavior) {
     if (data.behavior.suspiciousBehavior.suspicious) {
       score += 20;
       score += data.behavior.suspiciousBehavior.reasons.length * 5;
+      factors.push(`Comportamento suspeito: ${data.behavior.suspiciousBehavior.botProbability}% bot`);
+    }
+    if (data.behavior.suspiciousBehavior.botProbability) {
+      score += Math.min(data.behavior.suspiciousBehavior.botProbability, 30);
     }
   }
 
   // Automação detectada
   if (data.browser && data.browser.automation) {
-    if (data.browser.automation.webdriver) score += 40;
-    if (data.browser.automation.bot) score += 30;
+    if (data.browser.automation.webdriver) {
+      score += 40;
+      factors.push('WebDriver detectado (Selenium/Puppeteer)');
+    }
+    if (data.browser.automation.bot) {
+      score += 30;
+      factors.push('Bot detectado');
+    }
+    if (data.browser.automation.plugins === false && data.browser.automation.languages === false) {
+      score += 25;
+      factors.push('Características de bot (sem plugins/languages)');
+    }
   }
 
   // Modo privado pode indicar tentativa de ocultação
   if (data.browser && data.browser.privateMode === true) {
     score += 10;
+    factors.push('Modo privado/incógnito');
   }
 
   // Pouco tempo na página pode indicar bot
   if (data.behavior && data.behavior.timeOnPage) {
-    if (data.behavior.timeOnPage < 1000) score += 15;
+    if (data.behavior.timeOnPage < 1000) {
+      score += 15;
+      factors.push('Tempo muito curto na página');
+    }
+    if (data.behavior.timeOnPage < 500) {
+      score += 10;
+      factors.push('Saiu imediatamente (bot)');
+    }
   }
 
-  return Math.min(score, 100); // Máximo 100
+  // Sem interação humana
+  if (data.behavior) {
+    const totalInteractions = 
+      (data.behavior.mouseMovements?.length || 0) +
+      (data.behavior.clicks?.length || 0) +
+      (data.behavior.scrolls?.length || 0) +
+      (data.behavior.keystrokes?.length || 0);
+    
+    if (totalInteractions === 0 && data.behavior.timeOnPage > 2000) {
+      score += 20;
+      factors.push('Nenhuma interação humana detectada');
+    }
+  }
+
+  // Extensões de privacidade
+  if (data.browser && data.browser.extensions) {
+    if (data.browser.extensions.adblock || data.browser.extensions.privacy) {
+      score += 5;
+      factors.push('Extensões de privacidade detectadas');
+    }
+  }
+
+  // Score máximo 100
+  score = Math.min(score, 100);
+
+  return {
+    score: score,
+    level: score >= 70 ? 'HIGH' : score >= 40 ? 'MEDIUM' : 'LOW',
+    factors: factors
+  };
 }
 
 // API: Criar novo link de rastreamento
@@ -281,19 +465,31 @@ app.post('/api/track/:linkId', async (req, res) => {
     }
   }
 
-  // Processar dados de geolocalização
+  // Processar dados de geolocalização (EXPANDIDO)
   const geo = geoip.lookup(ip);
   if (geo) {
     data.geoLocation = {
       country: geo.country,
+      countryName: getCountryName(geo.country),
       region: geo.region,
       city: geo.city,
       latitude: geo.ll[0],
       longitude: geo.ll[1],
       timezone: geo.timezone,
       metro: geo.metro || null,
-      range: geo.range || null
+      range: geo.range || null,
+      // Dados adicionais
+      coordinates: {
+        lat: geo.ll[0],
+        lng: geo.ll[1],
+        accuracy: 'city_level' // Precisão aproximada
+      },
+      // Tentar obter mais dados via API externa
+      additional: await getAdditionalGeoData(ip)
     };
+  } else {
+    // Se geoip não encontrou, tentar API externa
+    data.geoLocation = await getAdditionalGeoData(ip);
   }
 
   // Processar User-Agent
@@ -317,10 +513,11 @@ app.post('/api/track/:linkId', async (req, res) => {
     }
   }
 
-  // Calcular score de risco
-  const riskScore = calculateRiskScore(data, vpnProxy);
-  data.riskScore = riskScore;
-  data.riskLevel = riskScore >= 70 ? 'HIGH' : riskScore >= 40 ? 'MEDIUM' : 'LOW';
+  // Calcular score de risco (EXPANDIDO)
+  const riskAnalysis = calculateRiskScore(data, vpnProxy);
+  data.riskScore = riskAnalysis.score;
+  data.riskLevel = riskAnalysis.level;
+  data.riskFactors = riskAnalysis.factors;
 
   // Adicionar IP e timestamp
   data.ipAddress = ip;

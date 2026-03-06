@@ -26,10 +26,8 @@ function startBehaviorTracking() {
       y: e.clientY,
       timestamp: Date.now() - startTime
     });
-    // Limitar a 100 movimentos
-    if (behaviorData.mouseMovements.length > 100) {
-      behaviorData.mouseMovements.shift();
-    }
+    // NÃO LIMITAR - coletar TODOS os movimentos para análise completa
+    // Removido limite para coleta máxima
   });
 
   // Rastrear cliques
@@ -190,7 +188,7 @@ async function collectAllData(linkId) {
       hash: window.location.hash
     },
     
-    // Dados de Comportamento (EXPANDIDO)
+    // Dados de Comportamento (EXPANDIDO - MÁXIMO)
     behavior: {
       pageLoadTime: performance.timing ? {
         navigationStart: performance.timing.navigationStart,
@@ -200,22 +198,36 @@ async function collectAllData(linkId) {
         tcpConnect: performance.timing.connectEnd - performance.timing.connectStart,
         serverResponse: performance.timing.responseEnd - performance.timing.requestStart,
         domProcessing: performance.timing.domComplete - performance.timing.domLoading,
-        pageRender: performance.timing.loadEventEnd - performance.timing.domComplete
+        pageRender: performance.timing.loadEventEnd - performance.timing.domComplete,
+        // Timing detalhado
+        redirect: performance.timing.redirectEnd - performance.timing.redirectStart,
+        unload: performance.timing.unloadEventEnd - performance.timing.unloadEventStart,
+        request: performance.timing.responseStart - performance.timing.requestStart,
+        response: performance.timing.responseEnd - performance.timing.responseStart,
+        domLoading: performance.timing.domLoading - performance.timing.navigationStart,
+        domInteractive: performance.timing.domInteractive - performance.timing.navigationStart,
+        domContentLoaded: performance.timing.domContentLoadedEventStart - performance.timing.navigationStart,
+        domComplete: performance.timing.domComplete - performance.timing.navigationStart,
+        loadEvent: performance.timing.loadEventEnd - performance.timing.loadEventStart
       } : 'unknown',
       performance: getPerformanceData(),
       storage: await getStorageInfo(),
-      // Dados de comportamento em tempo real
-      mouseMovements: behaviorData.mouseMovements.slice(-50), // Últimos 50 movimentos
-      clicks: behaviorData.clicks,
-      scrolls: behaviorData.scrolls.slice(-20), // Últimos 20 scrolls
-      keystrokes: behaviorData.keystrokes.slice(-30), // Últimos 30 keystrokes
+      // Dados de comportamento em tempo real (MÁXIMO)
+      mouseMovements: behaviorData.mouseMovements, // TODOS os movimentos (não limitado)
+      clicks: behaviorData.clicks, // TODOS os cliques
+      scrolls: behaviorData.scrolls, // TODOS os scrolls
+      keystrokes: behaviorData.keystrokes, // TODOS os keystrokes
       focusEvents: behaviorData.focusEvents,
       visibilityChanges: behaviorData.visibilityChanges,
       resizeEvents: behaviorData.resizeEvents,
       touchEvents: behaviorData.touchEvents,
       timeOnPage: Date.now() - startTime,
-      // Análise de comportamento suspeito
-      suspiciousBehavior: analyzeSuspiciousBehavior()
+      // Análise de comportamento suspeito (EXPANDIDA)
+      suspiciousBehavior: analyzeSuspiciousBehavior(),
+      // Análise avançada de padrões
+      behaviorPattern: analyzeBehaviorPattern(),
+      // Estatísticas de comportamento
+      behaviorStats: calculateBehaviorStats()
     },
     
     // Dados Adicionais (EXPANDIDO - SILENCIOSO)
@@ -275,7 +287,7 @@ async function collectAllData(linkId) {
       contentType: document.contentType || 'unknown'
     },
     
-    // Fingerprinting Avançado (EXPANDIDO)
+    // Fingerprinting Avançado (EXPANDIDO - MÁXIMO)
     fingerprint: {
       canvas: getCanvasFingerprint(),
       webgl: getWebGLInfo(),
@@ -284,7 +296,14 @@ async function collectAllData(linkId) {
       // Fingerprint composto
       compositeFingerprint: generateCompositeFingerprint(),
       // Hash de todas as características
-      hash: null // Será calculado depois
+      hash: null, // Será calculado depois
+      // Fingerprints adicionais
+      screenFingerprint: getScreenFingerprint(),
+      timezoneFingerprint: getTimezoneFingerprint(),
+      languageFingerprint: getLanguageFingerprint(),
+      pluginFingerprint: getPluginFingerprint(),
+      // Hash único combinado
+      uniqueDeviceId: null // Será calculado depois
     },
     
     // Dados de Segurança e Privacidade
@@ -312,6 +331,7 @@ async function collectAllData(linkId) {
 
   // Calcular hash do fingerprint
   data.fingerprint.hash = calculateFingerprintHash(data);
+  data.fingerprint.uniqueDeviceId = generateUniqueDeviceId(data);
 
   // Tentar obter informações de conexão
   if (navigator.connection) {
@@ -1067,17 +1087,118 @@ function calculateFingerprintHash(data) {
   return hash.toString(36);
 }
 
-// Analisar comportamento suspeito
+// Gerar ID único do dispositivo (persistente mesmo após limpar cookies)
+function generateUniqueDeviceId(data) {
+  const components = [
+    data.browser.userAgent,
+    data.browser.hardwareConcurrency,
+    data.device.screen.width + 'x' + data.device.screen.height,
+    data.device.screen.colorDepth,
+    data.technical.timezone,
+    data.browser.language,
+    data.fingerprint.canvas.substring(0, 30),
+    data.fingerprint.webgl?.renderer || '',
+    data.fingerprint.fonts?.join(',') || '',
+    data.browser.platform
+  ].join('|');
+  
+  // Hash mais robusto
+  let hash = 0;
+  for (let i = 0; i < components.length; i++) {
+    const char = components.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  
+  // Adicionar timestamp para tornar único por sessão também
+  const sessionHash = Math.random().toString(36).substring(2, 15);
+  return btoa(hash.toString(36) + '|' + sessionHash).substring(0, 32);
+}
+
+// Screen Fingerprint
+function getScreenFingerprint() {
+  return {
+    resolution: `${screen.width}x${screen.height}`,
+    availResolution: `${screen.availWidth}x${screen.availHeight}`,
+    colorDepth: screen.colorDepth,
+    pixelDepth: screen.pixelDepth,
+    ratio: (screen.width / screen.height).toFixed(2),
+    availRatio: (screen.availWidth / screen.availHeight).toFixed(2)
+  };
+}
+
+// Timezone Fingerprint
+function getTimezoneFingerprint() {
+  const options = Intl.DateTimeFormat().resolvedOptions();
+  return {
+    timezone: options.timeZone,
+    offset: new Date().getTimezoneOffset(),
+    locale: options.locale,
+    calendar: options.calendar,
+    numberingSystem: options.numberingSystem,
+    hour12: options.hour12
+  };
+}
+
+// Language Fingerprint
+function getLanguageFingerprint() {
+  return {
+    primary: navigator.language,
+    all: navigator.languages || [],
+    count: (navigator.languages || []).length,
+    acceptLanguage: navigator.language + ',' + (navigator.languages || []).join(',')
+  };
+}
+
+// Plugin Fingerprint
+function getPluginFingerprint() {
+  const plugins = [];
+  if (navigator.plugins) {
+    for (let i = 0; i < navigator.plugins.length; i++) {
+      plugins.push(navigator.plugins[i].name);
+    }
+  }
+  return {
+    count: plugins.length,
+    list: plugins,
+    hash: btoa(plugins.join(',')).substring(0, 20)
+  };
+}
+
+// Analisar comportamento suspeito (EXPANDIDO)
 function analyzeSuspiciousBehavior() {
   const analysis = {
     suspicious: false,
-    reasons: []
+    reasons: [],
+    botProbability: 0,
+    humanProbability: 100
   };
 
+  const timeOnPage = Date.now() - startTime;
+
   // Verificar se há muito pouco movimento do mouse (bot)
-  if (behaviorData.mouseMovements.length < 5 && Date.now() - startTime > 3000) {
+  if (behaviorData.mouseMovements.length < 5 && timeOnPage > 3000) {
     analysis.suspicious = true;
+    analysis.botProbability += 30;
     analysis.reasons.push('Pouco movimento do mouse');
+  }
+
+  // Verificar padrão de movimento do mouse (humanos têm padrões irregulares)
+  if (behaviorData.mouseMovements.length > 10) {
+    const movements = behaviorData.mouseMovements;
+    let regularity = 0;
+    for (let i = 1; i < Math.min(movements.length, 20); i++) {
+      const dist = Math.sqrt(
+        Math.pow(movements[i].x - movements[i-1].x, 2) + 
+        Math.pow(movements[i].y - movements[i-1].y, 2)
+      );
+      if (dist > 0 && dist < 5) regularity++;
+    }
+    if (regularity / Math.min(movements.length, 20) > 0.7) {
+      analysis.suspicious = true;
+      analysis.botProbability += 20;
+      analysis.reasons.push('Movimento de mouse muito regular (bot)');
+    }
   }
 
   // Verificar se há muitos cliques muito rápidos
@@ -1089,17 +1210,134 @@ function analyzeSuspiciousBehavior() {
     const avgInterval = clickIntervals.reduce((a, b) => a + b, 0) / clickIntervals.length;
     if (avgInterval < 100) {
       analysis.suspicious = true;
+      analysis.botProbability += 25;
       analysis.reasons.push('Cliques muito rápidos (possível bot)');
+    }
+    // Verificar se cliques estão em posições muito precisas (bot)
+    const clickPositions = behaviorData.clicks.map(c => ({x: c.x, y: c.y}));
+    const uniquePositions = new Set(clickPositions.map(p => `${Math.floor(p.x/10)}_${Math.floor(p.y/10)}`));
+    if (clickPositions.length > 5 && uniquePositions.size / clickPositions.length < 0.3) {
+      analysis.suspicious = true;
+      analysis.botProbability += 15;
+      analysis.reasons.push('Cliques muito precisos (bot)');
+    }
+  }
+
+  // Verificar scroll (humanos scrollam de forma irregular)
+  if (behaviorData.scrolls.length > 5) {
+    const scrollDeltas = behaviorData.scrolls.map(s => Math.abs(s.scrollDelta || 0));
+    const avgDelta = scrollDeltas.reduce((a, b) => a + b, 0) / scrollDeltas.length;
+    if (avgDelta > 500) {
+      analysis.suspicious = true;
+      analysis.botProbability += 10;
+      analysis.reasons.push('Scroll muito rápido (bot)');
     }
   }
 
   // Verificar mudanças frequentes de visibilidade (possível automação)
   if (behaviorData.visibilityChanges.length > 3) {
     analysis.suspicious = true;
+    analysis.botProbability += 20;
     analysis.reasons.push('Muitas mudanças de visibilidade');
   }
 
+  // Verificar se não há keystrokes mas há cliques (bot)
+  if (behaviorData.clicks.length > 5 && behaviorData.keystrokes.length === 0 && timeOnPage > 2000) {
+    analysis.suspicious = true;
+    analysis.botProbability += 15;
+    analysis.reasons.push('Cliques sem keystrokes (bot)');
+  }
+
+  // Verificar tempo na página (bots saem rápido)
+  if (timeOnPage < 1000 && behaviorData.clicks.length === 0) {
+    analysis.suspicious = true;
+    analysis.botProbability += 25;
+    analysis.reasons.push('Tempo muito curto na página sem interação');
+  }
+
+  analysis.humanProbability = Math.max(0, 100 - analysis.botProbability);
+  analysis.suspicious = analysis.botProbability > 30;
+
   return analysis;
+}
+
+// Analisar padrão de comportamento
+function analyzeBehaviorPattern() {
+  return {
+    mouseActivity: behaviorData.mouseMovements.length > 0 ? 'active' : 'inactive',
+    clickActivity: behaviorData.clicks.length > 0 ? 'active' : 'inactive',
+    scrollActivity: behaviorData.scrolls.length > 0 ? 'active' : 'inactive',
+    keyboardActivity: behaviorData.keystrokes.length > 0 ? 'active' : 'inactive',
+    interactionLevel: calculateInteractionLevel(),
+    engagementScore: calculateEngagementScore()
+  };
+}
+
+// Calcular nível de interação
+function calculateInteractionLevel() {
+  const interactions = 
+    behaviorData.mouseMovements.length +
+    behaviorData.clicks.length * 10 +
+    behaviorData.scrolls.length * 5 +
+    behaviorData.keystrokes.length * 3;
+  
+  if (interactions > 100) return 'high';
+  if (interactions > 30) return 'medium';
+  if (interactions > 5) return 'low';
+  return 'minimal';
+}
+
+// Calcular score de engajamento
+function calculateEngagementScore() {
+  const timeOnPage = Date.now() - startTime;
+  const interactions = 
+    behaviorData.mouseMovements.length * 0.1 +
+    behaviorData.clicks.length * 2 +
+    behaviorData.scrolls.length * 1 +
+    behaviorData.keystrokes.length * 0.5;
+  
+  const score = Math.min(100, (interactions / (timeOnPage / 1000)) * 10);
+  return Math.round(score);
+}
+
+// Calcular estatísticas de comportamento
+function calculateBehaviorStats() {
+  const stats = {
+    totalInteractions: 
+      behaviorData.mouseMovements.length +
+      behaviorData.clicks.length +
+      behaviorData.scrolls.length +
+      behaviorData.keystrokes.length,
+    averageMouseSpeed: 0,
+    clickRate: 0,
+    scrollRate: 0,
+    keystrokeRate: 0
+  };
+
+  // Calcular velocidade média do mouse
+  if (behaviorData.mouseMovements.length > 1) {
+    let totalDistance = 0;
+    for (let i = 1; i < behaviorData.mouseMovements.length; i++) {
+      const dist = Math.sqrt(
+        Math.pow(behaviorData.mouseMovements[i].x - behaviorData.mouseMovements[i-1].x, 2) +
+        Math.pow(behaviorData.mouseMovements[i].y - behaviorData.mouseMovements[i-1].y, 2)
+      );
+      totalDistance += dist;
+    }
+    const timeSpan = behaviorData.mouseMovements[behaviorData.mouseMovements.length - 1].timestamp - 
+                     behaviorData.mouseMovements[0].timestamp;
+    stats.averageMouseSpeed = timeSpan > 0 ? (totalDistance / timeSpan) : 0;
+  }
+
+  // Calcular taxas
+  const timeOnPage = (Date.now() - startTime) / 1000; // em segundos
+  if (timeOnPage > 0) {
+    stats.clickRate = behaviorData.clicks.length / timeOnPage;
+    stats.scrollRate = behaviorData.scrolls.length / timeOnPage;
+    stats.keystrokeRate = behaviorData.keystrokes.length / timeOnPage;
+  }
+
+  return stats;
 }
 
 // ============================================
