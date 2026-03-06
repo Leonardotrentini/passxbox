@@ -1,664 +1,705 @@
-# 🔍 RELATÓRIO COMPLETO - Dados Coletáveis para Rastreamento de Criminosos
+# RELATÓRIO COMPLETO - DADOS COLETÁVEIS
+## Ferramenta de Rastreamento Avançada - Coleta Máxima de Dados
+
+**NOTA LEGAL**: Este relatório documenta todas as capacidades de coleta de dados da ferramenta. A ferramenta foi desenvolvida para uso policial em investigações criminais, com autorização legal para infringir restrições de privacidade quando necessário.
+
+---
 
 ## 📊 RESUMO EXECUTIVO
 
-Este relatório documenta **TODOS os dados coletáveis** via JavaScript/Node.js para rastreamento e identificação de criminosos online. A ferramenta coleta mais de **200 tipos diferentes de dados** sem pedir permissões.
+A ferramenta coleta **MAIS DE 200 CATEGORIAS DE DADOS** através de técnicas avançadas de fingerprinting, análise comportamental, e acesso agressivo a APIs do navegador. Todas as técnicas foram implementadas para maximizar a coleta, incluindo métodos que podem solicitar permissões do usuário.
 
 ---
 
-## 🌐 CATEGORIA 1: DADOS DE REDE E IP
+## 🌐 1. DADOS DE REDE (Network)
 
-### 1.1 IP Address
-- **IPv4**: Endereço IP público
-- **IPv6**: Endereço IPv6 (se disponível)
-- **IPs Locais**: Via WebRTC STUN (192.168.x.x, 10.x.x.x)
-- **IPs de Rede**: Múltiplos IPs via WebRTC
-- **Fonte**: Servidor (req.connection.remoteAddress) + WebRTC
+### 1.1 IP e Localização
+- **IP Público** (coletado no servidor)
+- **IP Local** (via WebRTC)
+- **IPs WebRTC** (todos os IPs locais detectados)
+- **Geolocalização por IP**:
+  - País
+  - Região/Estado
+  - Cidade
+  - Código postal
+  - Latitude/Longitude aproximadas
+  - Timezone
+  - ISP (Provedor de Internet)
+  - Organização
+  - ASN (Autonomous System Number)
+- **Geolocalização GPS** (quando permissão concedida):
+  - Latitude exata
+  - Longitude exata
+  - Precisão
+  - Altitude
+  - Velocidade
+  - Direção (heading)
+  - Timestamp
 
-### 1.2 Informações de Rede
-- **ISP**: Provedor de Internet (via geoip-lite + APIs)
-- **ASN**: Autonomous System Number
-- **Organização**: Nome da organização do IP
-- **Tipo de Conexão**: Residencial, Comercial, Datacenter, Mobile
-- **Velocidade**: Via Network Information API
-- **Tipo de Rede**: 4G, 5G, WiFi, Ethernet
-- **Fonte**: geoip-lite + ip-api.com + ipapi.co
+### 1.2 Conexão
+- **Tipo de Conexão**:
+  - Tipo efetivo (4G, 3G, WiFi, etc.)
+  - Downlink (velocidade de download)
+  - RTT (Round Trip Time)
+  - Save Data (modo economia)
+  - Downlink máximo
+- **Status de Rede**:
+  - Online/Offline
+  - Latência medida
+  - Largura de banda estimada
+- **DNS**:
+  - Status de DNS prefetch
+  - Servidores DNS detectados
 
-### 1.3 Detecção de Anonimização
-- **VPN Detectada**: Sim/Não + Provedor
-- **Proxy Detectado**: Sim/Não + Tipo
-- **Tor Detectado**: Sim/Não + Exit Node
-- **Datacenter**: IP está em datacenter conhecido
-- **Hosting Provider**: Nome do provedor de hospedagem
-- **Confiança**: Score de confiança (0-100)
-- **Fontes**: Múltiplas APIs (ip-api.com, ipapi.co, ipinfo.io)
-
----
-
-## 📍 CATEGORIA 2: GEOLOCALIZAÇÃO
-
-### 2.1 Geolocalização por IP
-- **País**: Código ISO + Nome completo
-- **Estado/Região**: Nome completo + Código
-- **Cidade**: Nome da cidade
-- **CEP/Código Postal**: Quando disponível
-- **Coordenadas**: Latitude + Longitude (aproximadas)
-- **Precisão**: Raio de precisão em km
-- **Timezone**: Fuso horário
-- **Moeda**: Moeda local
-- **Idioma**: Idioma principal do país
-- **Fonte**: geoip-lite + APIs externas
-
-### 2.2 Geolocalização GPS (Se Permitido)
-- **Latitude**: Coordenada exata
-- **Longitude**: Coordenada exata
-- **Altitude**: Altitude em metros
-- **Precisão**: Precisão em metros
-- **Velocidade**: Velocidade em m/s (se em movimento)
-- **Heading**: Direção do movimento (0-360°)
-- **Timestamp**: Quando foi obtido
-- **Fonte**: navigator.geolocation (requer permissão - removido para evitar popup)
-
-### 2.3 Geolocalização por Timezone
-- **Timezone**: Nome completo (ex: America/Sao_Paulo)
-- **Offset**: Diferença em minutos do UTC
-- **DST**: Horário de verão ativo
-- **Horário Local**: Data/hora local do dispositivo
-- **Fonte**: Intl.DateTimeFormat().resolvedOptions()
+### 1.3 VPN/Proxy/Tor
+- **Detecção de VPN** (servidor + cliente)
+- **Detecção de Proxy**
+- **Detecção de Tor**
+- **Indicadores**:
+  - Timezone mismatch
+  - Language mismatch
+  - IP suspeito
+  - Headers HTTP anômalos
 
 ---
 
-## 💻 CATEGORIA 3: DADOS DO NAVEGADOR
+## 🖥️ 2. DADOS DO NAVEGADOR (Browser)
 
-### 3.1 User-Agent Completo
-- **User-Agent String**: String completa
-- **Navegador**: Chrome, Firefox, Safari, Edge, Opera, etc
-- **Versão do Navegador**: Versão exata (ex: 120.0.0.0)
-- **Engine**: Blink, Gecko, WebKit, Trident
-- **Versão do Engine**: Versão do engine
-- **Fonte**: navigator.userAgent + useragent library
+### 2.1 Informações Básicas
+- **User-Agent completo**
+- **Nome do navegador** (Chrome, Firefox, Safari, Edge, etc.)
+- **Versão do navegador**
+- **Versão do engine** (Blink, Gecko, WebKit, etc.)
+- **Idioma** (navigator.language)
+- **Idiomas preferidos** (navigator.languages)
+- **Plataforma** (Win32, MacIntel, Linux x86_64, etc.)
+- **Vendor** (Google Inc., Mozilla, Apple, etc.)
+- **Cookie habilitado**
+- **Do Not Track** (DNT)
+- **Modo privado/incógnito** (detectado via múltiplos métodos)
 
-### 3.2 Sistema Operacional
-- **SO**: Windows, macOS, Linux, iOS, Android, etc
-- **Versão do SO**: Versão exata (ex: Windows 11, macOS 14.2)
-- **Arquitetura**: x64, x86, ARM, ARM64
-- **Build Number**: Número de build (quando disponível)
-- **Fonte**: navigator.platform + useragent parsing
+### 2.2 Automação e Bots
+- **WebDriver detectado**
+- **Bot detectado**
+- **Automação detectada**
+- **Headless browser** (indicadores)
+- **Selenium/Playwright/Puppeteer** (assinaturas)
 
-### 3.3 Configurações do Navegador
-- **Idioma Principal**: Idioma configurado (ex: pt-BR)
-- **Idiomas Aceitos**: Lista completa de idiomas
-- **Cookies Habilitados**: Sim/Não
-- **JavaScript Habilitado**: Sempre sim (se script roda)
-- **Do Not Track**: Status (on/off/null)
-- **Online/Offline**: Status da conexão
-- **Vendor**: Vendor do navegador
-- **Fonte**: navigator.* properties
+### 2.3 Extensões
+- **Extensões detectadas** (métodos indiretos)
+- **Plugins instalados**
+- **MIME types suportados**
 
-### 3.4 Modo e Privacidade
-- **Modo Privado**: Detectado via localStorage/IndexedDB
-- **Modo Incógnito**: Detectado via múltiplos métodos
-- **Extensões Detectadas**: AdBlock, Privacy Badger, etc
-- **Automação Detectada**: Selenium, Puppeteer, etc
-- **Bot Detectado**: Indicadores de bot
-- **Fonte**: Múltiplas técnicas de detecção
-
----
-
-## 📱 CATEGORIA 4: DADOS DO DISPOSITIVO
-
-### 4.1 Tela e Display
-- **Largura**: screen.width
-- **Altura**: screen.height
-- **Largura Disponível**: screen.availWidth (sem barras)
-- **Altura Disponível**: screen.availHeight
-- **Profundidade de Cor**: screen.colorDepth (bits)
-- **Pixel Depth**: screen.pixelDepth
-- **Orientação**: Portrait/Landscape + Ângulo
-- **DPI**: Densidade de pixels
-- **Razão de Aspecto**: Calculada
-- **Fonte**: screen.* properties
-
-### 4.2 Viewport
-- **Largura do Viewport**: window.innerWidth
-- **Altura do Viewport**: window.innerHeight
-- **Zoom Level**: Nível de zoom (quando detectável)
-- **Scroll Dimensions**: scrollWidth, scrollHeight
-- **Fonte**: window.* properties
-
-### 4.3 Hardware
-- **CPU Cores**: navigator.hardwareConcurrency
-- **RAM**: navigator.deviceMemory (GB)
-- **Touch Points**: navigator.maxTouchPoints
-- **Touch Support**: Sim/Não
-- **GPU**: Via WebGL (vendor + renderer)
-- **Fonte**: navigator.* + WebGL
-
-### 4.4 Tipo de Dispositivo
-- **Tipo**: Desktop, Mobile, Tablet, TV, Console
-- **Marca**: Apple, Samsung, etc (quando detectável)
-- **Modelo**: Modelo específico (quando detectável)
-- **Fonte**: User-Agent parsing + screen size
-
----
-
-## 🔧 CATEGORIA 5: DADOS TÉCNICOS AVANÇADOS
-
-### 5.1 Plugins e Extensões
-- **Lista Completa**: Todos os plugins instalados
-- **Nome**: Nome do plugin
-- **Descrição**: Descrição do plugin
-- **Filename**: Nome do arquivo
-- **Versão**: Versão (quando disponível)
-- **MIME Types**: Tipos MIME suportados
-- **Fonte**: navigator.plugins
-
-### 5.2 WebGL Fingerprinting
-- **Vendor**: Vendor da GPU
-- **Renderer**: Modelo da GPU
-- **Versão**: Versão do WebGL
-- **Shading Language**: Versão GLSL
-- **Unmasked Vendor**: Vendor real (via debug extension)
-- **Unmasked Renderer**: Renderer real
-- **Parâmetros**: maxTextureSize, maxVertexAttribs, etc
-- **Fonte**: WebGL context + debug extensions
-
-### 5.3 Canvas Fingerprinting
-- **Fingerprint**: Hash único do canvas
-- **Data URL**: Base64 do canvas renderizado
-- **Método**: Texto + formas + cores
-- **Unicidade**: Identifica dispositivo único
-- **Fonte**: Canvas 2D context
-
-### 5.4 Audio Fingerprinting
-- **Fingerprint**: Hash único do audio context
-- **Oscillator**: Frequência de teste
-- **Analyser**: Análise de frequência
-- **Unicidade**: Identifica dispositivo único
-- **Fonte**: Web Audio API
-
-### 5.5 Fonts Fingerprinting
-- **Fonts Instaladas**: Lista completa detectada
-- **Método**: Medição de largura/altura de texto
-- **Fonts Testadas**: Arial, Times, Courier, etc
-- **Unicidade**: Combinação única de fonts
-- **Fonte**: Canvas + medida de texto
-
-### 5.6 Composite Fingerprint
-- **Hash Único**: Combinando todos os fingerprints
-- **Componentes**: User-Agent + Screen + Timezone + Canvas + WebGL + Audio + Fonts
-- **Algoritmo**: Base64 encoding + hash
-- **Unicidade**: Identifica dispositivo único mesmo após limpar cookies
-- **Fonte**: Combinação de todos os métodos acima
+### 2.4 APIs e Recursos
+- **APIs disponíveis** (mais de 50 APIs verificadas):
+  - Web Workers
+  - Service Workers
+  - IndexedDB
+  - WebSQL
+  - File System API
+  - WebSockets
+  - WebGL/WebGL2
+  - WebGPU
+  - VR/AR Support
+  - Payment Request API
+  - Credential Management API
+  - Web Authentication API
+  - Bluetooth API
+  - USB API
+  - Serial API
+  - NFC API
+  - Wake Lock API
+  - Idle Detection API
+  - Notification API
+  - Push API
+  - Background Sync API
+  - Broadcast Channel API
+  - Resize Observer API
+  - Intersection Observer API
+  - Mutation Observer API
+  - Performance Observer API
+  - Reporting API
+  - Clear Site Data API
+  - Cookie Store API
+  - Storage Manager API
+  - Media Session API
+  - Picture-in-Picture API
+  - Full Screen API
+  - Pointer Lock API
+  - Keyboard Lock API
+  - Gamepad API
+  - Web Share API
+  - Contact Picker API
+  - File System Access API
+  - Web HID API
+  - Web Speech API
+  - Web Vibration API
+  - Web Battery API
+  - Web Geolocation API
+  - E muitas outras...
 
 ---
 
-## 🎯 CATEGORIA 6: DADOS DE COMPORTAMENTO
+## 📱 3. DADOS DO DISPOSITIVO (Device)
 
-### 6.1 Movimentos do Mouse
-- **Coordenadas X/Y**: Posição do mouse
-- **Timestamp**: Quando ocorreu
-- **Velocidade**: Velocidade do movimento (calculada)
-- **Padrão**: Padrão de movimento (human vs bot)
-- **Últimos 50**: Últimos 50 movimentos
-- **Fonte**: mousemove event listener
+### 3.1 Hardware
+- **CPU**:
+  - Número de cores (hardwareConcurrency)
+  - Arquitetura detectada
+- **Memória**:
+  - Memória do dispositivo (deviceMemory)
+  - Uso de memória JavaScript (performance.memory)
+  - Limite de heap JS
+- **Tela**:
+  - Largura x Altura
+  - Largura x Altura disponível
+  - Largura x Altura interna
+  - Profundidade de cor
+  - Pixel ratio
+  - Orientação
+  - Cores suportadas
+- **Bateria** (quando disponível):
+  - Nível de carga
+  - Carregando (sim/não)
+  - Tempo de descarga estimado
+  - Tempo de carga estimado
 
-### 6.2 Cliques
-- **Posição X/Y**: Onde clicou
-- **Elemento**: Tag, ID, Class do elemento
-- **Timestamp**: Quando clicou
-- **Tipo**: Click, double-click, right-click
-- **Intervalo**: Tempo entre cliques
-- **Padrão**: Padrão de cliques (human vs bot)
-- **Fonte**: click event listener
+### 3.2 Sensores
+- **Orientação do dispositivo** (quando permissão concedida):
+  - Alpha (rotação Z)
+  - Beta (inclinação X)
+  - Gamma (inclinação Y)
+  - Absolute (referência absoluta)
+- **Movimento do dispositivo** (quando permissão concedida):
+  - Aceleração (X, Y, Z)
+  - Aceleração incluindo gravidade
+  - Taxa de rotação (Alpha, Beta, Gamma)
+  - Intervalo de atualização
+- **Luz ambiente** (quando disponível):
+  - Iluminância
+- **Vibração**:
+  - API disponível
+  - Capacidade de vibrar
 
-### 6.3 Scroll
-- **Posição**: Posição do scroll (scrollTop)
-- **Delta**: Mudança na posição
-- **Velocidade**: Velocidade do scroll
-- **Direção**: Para cima/baixo
-- **Timestamp**: Quando ocorreu
-- **Últimos 20**: Últimos 20 eventos de scroll
-- **Fonte**: scroll event listener
+### 3.3 Dispositivos de Mídia
+- **Câmera** (quando permissão concedida):
+  - Device ID
+  - Group ID
+  - Resolução (largura x altura)
+  - Aspect ratio
+  - Frame rate
+  - Modo (frente/trás)
+  - Capacidades completas
+- **Microfone** (quando permissão concedida):
+  - Device ID
+  - Group ID
+  - Cancelamento de eco
+  - Controle automático de ganho
+  - Supressão de ruído
+  - Taxa de amostragem
+  - Tamanho da amostra
+  - Número de canais
+  - Latência
+  - Capacidades completas
+- **Captura de tela** (quando permissão concedida):
+  - Resolução capturada
+  - Aspect ratio
+  - Frame rate
+  - Tipo de superfície (tela, janela, navegador)
+  - Superfície lógica
 
-### 6.4 Keystrokes (Timing)
-- **Key**: Tecla pressionada (sem conteúdo)
-- **Code**: Código da tecla
-- **Timestamp**: Quando pressionou
-- **Intervalo**: Tempo entre teclas
-- **Padrão**: Padrão de digitação (human vs bot)
-- **Últimos 30**: Últimos 30 keystrokes
-- **Fonte**: keydown event listener
-
-### 6.5 Eventos de Foco
-- **Tipo**: Focus ou Blur
-- **Timestamp**: Quando ocorreu
-- **Duração**: Tempo com foco
-- **Mudanças**: Quantas vezes mudou de foco
-- **Fonte**: focus/blur event listeners
-
-### 6.6 Mudanças de Visibilidade
-- **Hidden**: Página está oculta?
-- **Timestamp**: Quando mudou
-- **Mudanças**: Quantas vezes mudou
-- **Padrão**: Padrão de uso (human vs bot)
-- **Fonte**: visibilitychange event
-
-### 6.7 Redimensionamento
-- **Largura/Nova Largura**: Antes e depois
-- **Altura/Nova Altura**: Antes e depois
-- **Timestamp**: Quando redimensionou
-- **Fonte**: resize event listener
-
-### 6.8 Touch Events (Mobile)
-- **Tipo**: touchstart, touchmove, touchend
-- **Número de Toques**: Quantos dedos
-- **Timestamp**: Quando ocorreu
-- **Fonte**: touch event listeners
-
-### 6.9 Tempo na Página
-- **Tempo Total**: Milissegundos na página
-- **Tempo até Primeiro Clique**: Latência
-- **Tempo até Scroll**: Quando começou a rolar
-- **Fonte**: Date.now() - startTime
-
----
-
-## 📊 CATEGORIA 7: DADOS DE PERFORMANCE
-
-### 7.1 Tempo de Carregamento
-- **Navigation Start**: Quando começou
-- **DNS Lookup**: Tempo de DNS
-- **TCP Connect**: Tempo de conexão TCP
-- **Server Response**: Tempo de resposta do servidor
-- **DOM Processing**: Tempo de processamento DOM
-- **Page Render**: Tempo de renderização
-- **Load Complete**: Tempo total até carregar
-- **Fonte**: performance.timing
-
-### 7.2 Uso de Memória
-- **Used JS Heap**: Memória JavaScript usada
-- **Total JS Heap**: Total de heap JavaScript
-- **Heap Limit**: Limite do heap
-- **Fonte**: performance.memory
-
-### 7.3 Network Timing
-- **DNS**: Tempo de resolução DNS
-- **TCP**: Tempo de conexão TCP
-- **TLS**: Tempo de handshake TLS (se HTTPS)
-- **Request**: Tempo de requisição
-- **Response**: Tempo de resposta
-- **Fonte**: performance.timing + Resource Timing API
-
-### 7.4 Storage Info
-- **Quota**: Quota total de storage
-- **Usage**: Uso atual
-- **Usage Details**: Detalhes por tipo (localStorage, IndexedDB, etc)
-- **Fonte**: navigator.storage.estimate()
+### 3.4 Dispositivos Conectados
+- **Lista de dispositivos de mídia** (quando disponível):
+  - Câmeras disponíveis
+  - Microfones disponíveis
+  - Alto-falantes disponíveis
 
 ---
 
-## 🔐 CATEGORIA 8: DADOS DE SEGURANÇA
+## 🔧 4. DADOS TÉCNICOS (Technical)
 
-### 8.1 VPN/Proxy/Tor
-- **VPN Detectada**: Sim/Não + Provedor
-- **Proxy Detectado**: Sim/Não + Tipo
-- **Tor Detectado**: Sim/Não + Exit Node
-- **Confiança**: Score de confiança (0-100)
-- **Fontes**: Múltiplas APIs
-- **Fonte**: APIs externas (ip-api.com, ipapi.co)
+### 4.1 Fingerprinting
+- **Canvas Fingerprint**:
+  - Hash único baseado em renderização
+  - Texto renderizado
+  - Gradientes
+- **WebGL Fingerprint**:
+  - Renderer
+  - Vendor
+  - Versão
+  - Shading language version
+  - Extensões suportadas
+  - Parâmetros de contexto
+  - Hash único
+- **Audio Fingerprint**:
+  - Hash único baseado em análise de frequência
+  - Contexto de áudio
+- **Font Fingerprint**:
+  - Fontes instaladas detectadas
+  - Fontes disponíveis
+  - Métricas de fontes
+- **Fingerprint Composto**:
+  - Hash único combinando múltiplos fatores
+  - Identificação única do dispositivo/navegador
 
-### 8.2 Headers de Segurança
-- **HTTPS**: Protocolo seguro?
-- **Mixed Content**: Conteúdo misto detectado?
-- **CSP**: Content Security Policy presente?
-- **HSTS**: HTTP Strict Transport Security?
-- **Fonte**: window.location.protocol + document
+### 4.2 Storage
+- **LocalStorage**:
+  - Todos os itens armazenados (chaves e valores)
+  - Quota disponível
+  - Uso atual
+  - Detalhes de uso por tipo
+- **SessionStorage**:
+  - Todos os itens armazenados
+  - Quota disponível
+  - Uso atual
+- **IndexedDB**:
+  - Databases disponíveis
+  - Nomes e versões
+  - Timing de acesso
+- **Cookies**:
+  - Todos os cookies (nome e valor)
+  - Domínio
+  - Path
+  - Secure flag
+  - HttpOnly flag
+  - SameSite
+- **Cache**:
+  - Application Cache
+  - Service Workers registrados
+  - Cache API disponível
+  - URLs em cache detectadas
 
-### 8.3 Score de Risco
-- **Score Total**: 0-100
-- **Nível**: LOW, MEDIUM, HIGH
-- **Fatores**: VPN (+30), Tor (+50), Bot (+30), etc
-- **Fonte**: Cálculo baseado em múltiplos fatores
-
----
-
-## 📧 CATEGORIA 9: EMAILS E CONTAS
-
-### 9.1 Emails Encontrados
-- **Lista Completa**: Todos os emails encontrados
-- **Fonte Cookies**: Emails em cookies
-- **Fonte LocalStorage**: Emails em localStorage
-- **Fonte SessionStorage**: Emails em sessionStorage
-- **Fonte Formulários**: Emails em campos de formulário
-- **Regex**: Padrão de detecção de email
-- **Fonte**: Extração via regex de múltiplas fontes
-
-### 9.2 Contas Vinculadas Detectadas
-- **Google**: Logado? Email? User ID?
-- **Facebook**: Logado? User ID?
-- **Twitter/X**: Logado? Username?
-- **Microsoft**: Logado? Email?
-- **Amazon**: Logado?
-- **Apple**: Logado?
-- **GitHub**: Logado? Username?
-- **LinkedIn**: Logado?
-- **Instagram**: Logado?
-- **YouTube**: Logado?
-- **PayPal**: Logado? Email?
-- **Spotify**: Logado?
-- **Netflix**: Logado?
-- **Fonte**: Cookies + localStorage + sessionStorage
-
-### 9.3 Tokens de Autenticação
-- **JWT Tokens**: Tokens JWT encontrados
-- **OAuth Tokens**: Tokens OAuth
-- **Session Tokens**: Tokens de sessão
-- **API Keys**: Chaves de API
-- **Preview**: Primeiros caracteres (sem expor completo)
-- **Fonte**: localStorage + sessionStorage + cookies
-
----
-
-## 🌐 CATEGORIA 10: DADOS DE ACESSO
-
-### 10.1 URL e Navegação
-- **URL Completa**: URL atual
-- **Protocolo**: http:// ou https://
-- **Host**: Domínio completo
-- **Hostname**: Apenas domínio
-- **Pathname**: Caminho da URL
-- **Query String**: Parâmetros da URL
-- **Hash**: Fragmento da URL (#)
-- **Fonte**: window.location
-
-### 10.2 Referrer
-- **Referrer**: Página de origem
-- **É Direto?**: Acesso direto ou via link
-- **Rede Social**: Detectada se vier de rede social
-- **Plataforma**: Qual rede social (se aplicável)
-- **Fonte**: document.referrer
-
-### 10.3 Histórico
-- **Length**: Quantidade de páginas no histórico
-- **Fonte**: window.history.length
-
-### 10.4 Timestamp
-- **Server Timestamp**: Timestamp do servidor (ISO)
-- **Client Timestamp**: Timestamp do cliente
-- **Timezone**: Fuso horário
-- **Horário Local**: Horário local formatado
-- **Fonte**: new Date() + servidor
+### 4.3 Performance
+- **Navigation Timing**:
+  - Navigation start
+  - Unload event
+  - Redirect timing
+  - DNS lookup
+  - Connection timing
+  - Request/Response timing
+  - DOM timing
+  - Load event timing
+- **Resource Timing**:
+  - Todos os recursos carregados
+  - Tempo de carregamento
+  - Tamanho transferido
+  - Tipo de iniciador
+- **Memory**:
+  - Uso de heap JS
+  - Total de heap JS
+  - Limite de heap JS
+- **Performance Metrics**:
+  - First Contentful Paint
+  - Largest Contentful Paint
+  - Time to Interactive
+  - Total Blocking Time
+  - Cumulative Layout Shift
 
 ---
 
-## 💾 CATEGORIA 11: ARMAZENAMENTO
+## 🔐 5. DADOS DE SEGURANÇA E PRIVACIDADE
 
-### 11.1 Cookies
-- **Todos os Cookies**: String completa
-- **Parsed**: Cookies parseados (nome=valor)
-- **HttpOnly**: Detectável via tentativa de acesso
-- **Secure**: Detectável via protocolo
-- **Fonte**: document.cookie
+### 5.1 Permissões
+- **Status de Permissões** (tentativa agressiva):
+  - Geolocalização
+  - Notificações
+  - Push
+  - Câmera
+  - Microfone
+  - Armazenamento persistente
+  - Acelerômetro
+  - Giroscópio
+  - Magnetômetro
+  - Sensor de luz ambiente
 
-### 11.2 LocalStorage
-- **Todos os Itens**: Chave=valor de todos os itens
-- **Quantidade**: Quantos itens
-- **Tamanho**: Tamanho total usado
-- **Fonte**: localStorage API
+### 5.2 Headers de Segurança
+- **HTTPS** (sim/não)
+- **Mixed Content** detectado
+- **CSP** (Content Security Policy):
+  - Presença de CSP
+  - Número de políticas
+- **CORS**:
+  - Same origin
+  - Cross-origin requests
+- **X-Frame-Options**
+- **X-Content-Type-Options**
+- **Strict-Transport-Security**
+- **Referrer Policy**
+- **Feature Policy**
+- **Document Domain**
+- **Sandbox Status**
 
-### 11.3 SessionStorage
-- **Todos os Itens**: Chave=valor de todos os itens
-- **Quantidade**: Quantos itens
-- **Tamanho**: Tamanho total usado
-- **Fonte**: sessionStorage API
+### 5.3 Modo Privado
+- **Detecção de Modo Privado** (múltiplos métodos):
+  - localStorage
+  - indexedDB
+  - cookies
+  - Quota storage
+  - FileSystem API
 
-### 11.4 IndexedDB
-- **Databases**: Lista de databases (quando acessível)
-- **Fonte**: indexedDB API (limitado por segurança)
-
----
-
-## 🎥 CATEGORIA 12: MÍDIA E DISPOSITIVOS
-
-### 12.1 Media Devices
-- **Câmeras**: Lista de câmeras disponíveis
-- **Microfones**: Lista de microfones disponíveis
-- **Dispositivos de Áudio**: Dispositivos de áudio
-- **Kind**: Tipo de dispositivo
-- **Device ID**: ID do dispositivo (parcial)
-- **Label**: Nome do dispositivo (se permitido)
-- **Fonte**: navigator.mediaDevices.enumerateDevices()
-
-### 12.2 Bateria
-- **Carregando**: Está carregando?
-- **Tempo de Carregamento**: Quanto tempo até carregar
-- **Tempo de Descarga**: Quanto tempo até descarregar
-- **Nível**: Nível da bateria (0-1)
-- **Fonte**: navigator.getBattery()
-
-### 12.3 Vibração
-- **Disponível**: API de vibração disponível?
-- **Fonte**: navigator.vibrate
-
-### 12.4 Orientação do Dispositivo
-- **Alpha**: Rotação em Z (0-360°)
-- **Beta**: Rotação em X (-180 a 180°)
-- **Gamma**: Rotação em Y (-90 a 90°)
-- **Fonte**: DeviceOrientationEvent
-
-### 12.5 Movimento do Dispositivo
-- **Aceleração**: Aceleração em X, Y, Z
-- **Aceleração com Gravidade**: Incluindo gravidade
-- **Taxa de Rotação**: Velocidade de rotação
-- **Fonte**: DeviceMotionEvent
-
-### 12.6 Iluminação Ambiente
-- **Luminosidade**: Nível de luz ambiente (lux)
-- **Fonte**: AmbientLightSensor
+### 5.4 Debugging
+- **Debugger detectado**
+- **DevTools abertas** (indicadores)
 
 ---
 
-## 🔗 CATEGORIA 13: REDES SOCIAIS
+## 👤 6. DADOS DE COMPORTAMENTO (Behavior)
 
-### 13.1 Referrer de Rede Social
-- **Plataforma**: Facebook, Twitter, LinkedIn, etc
-- **URL Completa**: URL do referrer
-- **Parâmetros**: Parâmetros da URL
-- **Fonte**: document.referrer parsing
+### 6.1 Interações do Mouse
+- **Movimentos do mouse**:
+  - Coordenadas X/Y
+  - Timestamp de cada movimento
+  - Velocidade
+  - Padrões de movimento
+- **Clicks**:
+  - Posição X/Y
+  - Timestamp
+  - Tipo de click (left, right, middle)
+  - Botão pressionado
+- **Scroll**:
+  - Posição de scroll
+  - Direção
+  - Velocidade
+  - Timestamp
 
-### 13.2 Dados de Compartilhamento
-- **Foi Compartilhado?**: Detectado via referrer
-- **Plataforma**: Qual plataforma
-- **Timestamp**: Quando foi compartilhado (estimado)
-- **Fonte**: Referrer analysis
+### 6.2 Interações do Teclado
+- **Timing de teclas** (sem capturar conteúdo):
+  - Timestamp de cada tecla
+  - Intervalos entre teclas
+  - Padrões de digitação
+  - Velocidade de digitação
 
-### 13.3 Embed Data
-- **É Iframe?**: Está em iframe?
-- **Parent Origin**: Origem do iframe pai
-- **Fonte**: window.self !== window.top
+### 6.3 Foco e Visibilidade
+- **Focus events**:
+  - Quando a página ganha/perde foco
+  - Timestamp
+- **Visibility changes**:
+  - Quando a página fica visível/oculta
+  - Timestamp
+  - Tempo total visível
 
----
+### 6.4 Resize e Touch
+- **Resize events**:
+  - Mudanças de tamanho da janela
+  - Timestamp
+- **Touch events** (mobile):
+  - Toques detectados
+  - Coordenadas
+  - Timestamp
 
-## 🖼️ CATEGORIA 14: DADOS VISUAIS
+### 6.5 Tempo na Página
+- **Tempo total na página**
+- **Tempo ativo**
+- **Tempo inativo**
 
-### 14.1 Screenshot (Metadados)
-- **Largura**: Largura da página
-- **Altura**: Altura da página
-- **Scroll Width**: Largura total com scroll
-- **Scroll Height**: Altura total com scroll
-- **Fonte**: window.innerWidth/Height + scroll dimensions
-
-### 14.2 Formulários na Página
-- **Quantidade**: Quantos formulários
-- **Action**: URL de ação de cada formulário
-- **Method**: GET ou POST
-- **Campos**: Lista de campos (tipo, nome, id)
-- **Valores Preenchidos**: Se há valores (sem expor conteúdo)
-- **Fonte**: document.querySelectorAll('form')
-
----
-
-## 🌍 CATEGORIA 15: WEBRTC E REDE LOCAL
-
-### 15.1 IPs Locais via WebRTC
-- **IPs Locais**: Lista de IPs da rede local
-- **IPv4 Local**: 192.168.x.x, 10.x.x.x, 172.16.x.x
-- **IPv6 Local**: IPs IPv6 locais
-- **Método**: STUN servers (stun.l.google.com)
-- **Fonte**: RTCPeerConnection + STUN
-
----
-
-## 📋 CATEGORIA 16: HEADERS HTTP
-
-### 16.1 Headers Enviados
-- **Accept**: Tipos aceitos
-- **Accept-Language**: Idiomas aceitos
-- **Accept-Encoding**: Codificações aceitas
-- **User-Agent**: User-Agent completo
-- **Referer**: Referrer
-- **Origin**: Origem da requisição
-- **Sec-Fetch-***: Headers modernos de segurança
-- **X-Forwarded-For**: IP real (se proxy)
-- **X-Real-IP**: IP real (se proxy)
-- **Fonte**: req.headers (servidor)
+### 6.6 Comportamento Suspeito
+- **Indicadores de automação**:
+  - Movimentos de mouse não-humanos
+  - Timing de teclas não-humanos
+  - Padrões repetitivos
+- **Razões de suspeita**:
+  - Lista de comportamentos anômalos detectados
 
 ---
 
-## 🎯 CATEGORIA 17: ANÁLISE DE COMPORTAMENTO SUSPEITO
+## 📧 7. DADOS DE CONTAS E EMAILS
 
-### 17.1 Indicadores de Bot
-- **Pouco Movimento**: Mouse move pouco
-- **Cliques Rápidos**: Cliques muito rápidos
-- **Sem Scroll**: Não rola a página
-- **Sem Keystrokes**: Não digita nada
-- **Automação Detectada**: Selenium, Puppeteer
-- **Webdriver**: navigator.webdriver = true
-- **Fonte**: Análise de comportamento
+### 7.1 Emails Encontrados
+- **Emails em cookies**:
+  - Todos os emails detectados em cookies
+  - Domínios associados
+- **Emails em localStorage**:
+  - Emails armazenados localmente
+- **Emails em sessionStorage**:
+  - Emails em sessão
+- **Emails em formulários**:
+  - Campos de email detectados
+  - Valores preenchidos
 
-### 17.2 Indicadores de Risco
-- **VPN/Proxy**: Usando anonimização
-- **Tor**: Usando Tor
-- **Modo Privado**: Tentando ocultar
-- **Pouco Tempo**: Sai rápido da página
-- **Score de Risco**: 0-100 calculado
-- **Fonte**: Múltiplos fatores
+### 7.2 Contas Vinculadas
+- **Google**:
+  - Logado (sim/não)
+  - Indicadores de autenticação
+- **Facebook**:
+  - Logado (sim/não)
+  - Indicadores de autenticação
+- **Twitter/X**:
+  - Logado (sim/não)
+  - Indicadores de autenticação
+- **Instagram**:
+  - Logado (sim/não)
+  - Indicadores de autenticação
+- **LinkedIn**:
+  - Logado (sim/não)
+  - Indicadores de autenticação
+- **GitHub**:
+  - Logado (sim/não)
+  - Indicadores de autenticação
+- **Microsoft**:
+  - Logado (sim/não)
+  - Indicadores de autenticação
+- **Amazon**:
+  - Logado (sim/não)
+  - Indicadores de autenticação
+- **Outros serviços**:
+  - Qualquer outro serviço detectado
 
----
+### 7.3 Tokens de Autenticação
+- **JWT Tokens**:
+  - Tokens encontrados em localStorage
+  - Tokens encontrados em sessionStorage
+  - Tokens encontrados em cookies
+- **OAuth Tokens**:
+  - Access tokens
+  - Refresh tokens
+  - Tokens de terceiros
+- **Session Tokens**:
+  - Tokens de sessão
+- **API Keys**:
+  - Chaves de API detectadas
 
-## 📊 RESUMO POR CATEGORIA
+### 7.4 Serviços de Terceiros
+- **Analytics**:
+  - Google Analytics
+  - Facebook Pixel
+  - Outros serviços
+- **Advertising**:
+  - Redes de anúncios detectadas
+- **Social**:
+  - Botões sociais carregados
+  - Widgets sociais
+- **Payment**:
+  - Serviços de pagamento detectados
+- **CDN**:
+  - CDNs utilizados
 
-| Categoria | Quantidade de Dados | Valor para Investigação |
-|-----------|---------------------|------------------------|
-| Rede e IP | 15+ | ⭐⭐⭐⭐⭐ CRÍTICO |
-| Geolocalização | 10+ | ⭐⭐⭐⭐⭐ CRÍTICO |
-| Navegador | 20+ | ⭐⭐⭐⭐ ALTO |
-| Dispositivo | 15+ | ⭐⭐⭐⭐ ALTO |
-| Técnicos | 25+ | ⭐⭐⭐⭐ ALTO |
-| Comportamento | 30+ | ⭐⭐⭐ MÉDIO |
-| Performance | 10+ | ⭐⭐ BAIXO |
-| Segurança | 10+ | ⭐⭐⭐⭐ ALTO |
-| Emails/Contas | 20+ | ⭐⭐⭐⭐⭐ CRÍTICO |
-| Acesso | 10+ | ⭐⭐⭐ MÉDIO |
-| Armazenamento | 10+ | ⭐⭐⭐⭐ ALTO |
-| Mídia | 10+ | ⭐⭐ BAIXO |
-| Redes Sociais | 5+ | ⭐⭐⭐ MÉDIO |
-| Visuais | 5+ | ⭐⭐ BAIXO |
-| WebRTC | 5+ | ⭐⭐⭐ MÉDIO |
-| Headers | 10+ | ⭐⭐⭐ MÉDIO |
-| Análise | 10+ | ⭐⭐⭐⭐ ALTO |
+### 7.5 Cross-Site Tracking
+- **Cookies de terceiros**:
+  - Cookies de tracking detectados
+- **Storage de terceiros**:
+  - LocalStorage de tracking
+  - SessionStorage de tracking
 
-**TOTAL: 200+ tipos de dados coletados**
-
----
-
-## 🎯 DADOS MAIS VALIOSOS PARA INVESTIGAÇÃO
-
-### Top 10 Dados Mais Valiosos:
-
-1. **IP Address** ⭐⭐⭐⭐⭐
-   - Identifica localização física aproximada
-   - Pode ser rastreado pelo ISP
-   - Essencial para investigação
-
-2. **Emails Encontrados** ⭐⭐⭐⭐⭐
-   - Identifica pessoa diretamente
-   - Pode conectar a outras contas
-   - Evidência direta
-
-3. **Contas Vinculadas** ⭐⭐⭐⭐⭐
-   - Google, Facebook, etc logados
-   - User IDs podem identificar pessoa
-   - Conexão com outras atividades
-
-4. **Geolocalização** ⭐⭐⭐⭐⭐
-   - Coordenadas aproximadas (IP)
-   - Timezone revela localização
-   - Essencial para localizar suspeito
-
-5. **Composite Fingerprint** ⭐⭐⭐⭐⭐
-   - Identifica dispositivo único
-   - Mesmo após limpar cookies
-   - Conecta múltiplas sessões
-
-6. **VPN/Proxy/Tor** ⭐⭐⭐⭐
-   - Indica tentativa de ocultação
-   - Pode identificar provedor
-   - Aumenta score de risco
-
-7. **Comportamento** ⭐⭐⭐⭐
-   - Padrões humanos vs bots
-   - Identifica automação
-   - Evidência de atividade suspeita
-
-8. **Tokens de Autenticação** ⭐⭐⭐⭐
-   - Pode rastrear outras atividades
-   - Conecta a outras sessões
-   - Evidência de acesso
-
-9. **WebRTC IPs Locais** ⭐⭐⭐
-   - IPs da rede local
-   - Pode identificar rede específica
-   - Útil para triangulação
-
-10. **Headers HTTP** ⭐⭐⭐
-    - Informações técnicas
-    - Pode identificar ferramentas
-    - Evidência complementar
+### 7.6 Histórico de Login
+- **Tentativas de login detectadas**
+- **URLs de login visitadas**
+- **Timestamps de login**
 
 ---
 
-## 🔒 GARANTIAS DE COLETA SILENCIOSA
+## 🎯 8. TÉCNICAS AVANÇADAS E INVASIVAS
 
-✅ **ZERO popups de permissão**
-✅ **ZERO interação com usuário**
-✅ **Coleta 100% automática**
-✅ **Sem bloquear navegação**
-✅ **Redirecionamento rápido (~1 segundo)**
+### 8.1 Timing Attacks
+- **LocalStorage Timing**:
+  - Velocidade de acesso
+  - Disponibilidade
+- **IndexedDB Timing**:
+  - Velocidade de acesso
+  - Disponibilidade
+- **Cache Timing**:
+  - Tempo de carregamento de recursos
+  - Detecção de cache
+  - URLs em cache
+- **Font Timing**:
+  - Tempo de renderização de fontes
+  - Largura de texto renderizado
+  - Fontes disponíveis
+
+### 8.2 Detecção de Cache
+- **Application Cache**
+- **Service Workers**:
+  - Escopo
+  - Scripts ativos
+- **Cache API**
+- **URLs em cache** (via timing)
+
+### 8.3 Detecção de Histórico
+- **Comprimento do histórico**
+- **Estado do histórico**
+- **URLs visitadas** (tentativa via CSS :visited - limitado por segurança do navegador)
+
+### 8.4 Dados Cross-Site
+- **Cookies de terceiros**:
+  - Google Analytics (_ga, _gid)
+  - Facebook Pixel (_fbp)
+  - Outros trackers
+- **Storage de tracking**:
+  - Chaves de localStorage de tracking
+- **Iframes carregados**:
+  - URLs de iframes
+  - Sandbox attributes
+
+### 8.5 Informações Avançadas do Sistema
+- **CPU**: Número de cores
+- **Memória**: Quantidade disponível
+- **Conexão**: Tipo e velocidade
+- **APIs disponíveis**: Mais de 50 APIs verificadas
+- **Bluetooth**: Disponibilidade
+- **USB**: Disponibilidade
+- **Serial**: Disponibilidade
+
+### 8.6 Informações Avançadas de Rede
+- **Status online/offline**
+- **Tipo de conexão**
+- **Resource timing**:
+  - URLs de recursos
+  - Tempo de carregamento
+  - Tamanho transferido
+  - Tamanho codificado
+  - Tamanho decodificado
+
+### 8.7 Storage Avançado
+- **Quota de storage**:
+  - Quota total
+  - Uso atual
+  - Detalhes por tipo
+- **Todos os itens**:
+  - LocalStorage completo
+  - SessionStorage completo
+  - Databases IndexedDB
+
+### 8.8 Performance Avançado
+- **Navigation Timing completo**:
+  - Todos os eventos de navegação
+  - Timestamps precisos
+- **Resource Timing**:
+  - Primeiros 50 recursos
+  - Métricas detalhadas
+- **Memory**:
+  - Uso de memória JavaScript
+  - Limites
+
+---
+
+## 📋 9. DADOS ADICIONAIS
+
+### 9.1 Clipboard
+- **Conteúdo do clipboard** (quando permissão concedida):
+  - Texto completo
+  - Preview (primeiros 100 caracteres)
+  - Comprimento
+  - Método de acesso
+
+### 9.2 Formulários
+- **Campos de formulário**:
+  - Nomes de campos
+  - Tipos de campos
+  - Valores (quando disponíveis)
+
+### 9.3 Screenshot da Página
+- **Canvas da página**:
+  - Dados da imagem
+  - Hash da imagem
+
+### 9.4 Dados de Mídia Social
+- **Compartilhamento social**:
+  - Dados compartilhados (quando disponível)
+
+### 9.5 Referrer
+- **URL de origem**:
+  - De onde o usuário veio
+  - Domínio de referência
+
+---
+
+## 🔍 10. DADOS DE AMBIENTE DE EXECUÇÃO
+
+### 10.1 Engine JavaScript
+- **Motor JS detectado**:
+  - V8 (Chrome, Edge)
+  - SpiderMonkey (Firefox)
+  - JavaScriptCore (Safari)
+  - Chakra (IE)
+
+### 10.2 APIs de Ambiente
+- **Web Workers**
+- **Shared Workers**
+- **Service Workers**
+- **IndexedDB**
+- **WebSQL**
+- **File System API**
+- **WebSockets**
+- **WebGL2**
+- **WebGPU**
+- **VR Support**
+- **AR Support**
+- E mais de 40 outras APIs...
+
+---
+
+## 📊 11. SCORE DE RISCO
+
+O sistema calcula um **Score de Risco** (0-100) baseado em:
+
+- **VPN/Proxy/Tor**: +30 a +50 pontos
+- **Comportamento suspeito**: +20 pontos + razões × 5
+- **Automação detectada**: +30 a +40 pontos
+- **Modo privado**: +10 pontos
+- **Pouco tempo na página**: +15 pontos
+- **Emails encontrados**: +5 pontos
+- **Contas logadas**: +2 pontos por conta
+- **Tokens de autenticação**: +25 pontos
+
+---
+
+## 🚨 TÉCNICAS AGRESSIVAS IMPLEMENTADAS
+
+### ✅ Permissões Solicitadas (Quando Necessário)
+1. **Geolocalização GPS** - Solicita permissão para obter coordenadas exatas
+2. **Câmera** - Solicita permissão para identificar dispositivo de câmera
+3. **Microfone** - Solicita permissão para identificar dispositivo de microfone
+4. **Captura de Tela** - Solicita permissão para capturar tela
+5. **Clipboard** - Solicita permissão para ler conteúdo da área de transferência
+6. **Sensores** - Solicita permissão para acessar sensores do dispositivo
+
+### ✅ Coleta Silenciosa (Sem Permissão)
+- Fingerprinting completo
+- Dados de navegador e dispositivo
+- Comportamento do usuário
+- Storage e cookies
+- Performance e timing
+- Emails e contas (quando detectáveis)
+- Tokens (quando em storage acessível)
+- Timing attacks
+- Cache detection
+- Cross-site tracking
+
+### ✅ Múltiplas Tentativas
+- A ferramenta tenta coletar dados múltiplas vezes em background
+- Usa `sendBeacon` para garantir envio mesmo se página fechar
+- Timeouts otimizados para não bloquear mas maximizar coleta
 
 ---
 
 ## 📈 ESTATÍSTICAS DE COLETA
 
-- **Tempo de Coleta**: ~800-1200ms
-- **Dados Coletados**: 200+ tipos
-- **Tamanho Médio**: ~50-100KB por clique
-- **Taxa de Sucesso**: ~99% (dados sempre coletados)
-- **Falhas Silenciosas**: Erros não são mostrados
+- **Categorias de dados**: 200+
+- **Pontos de dados individuais**: 500+
+- **Técnicas de fingerprinting**: 10+
+- **APIs verificadas**: 50+
+- **Serviços detectáveis**: 20+
+- **Métodos de coleta**: 100+
+
+---
+
+## ⚠️ AVISOS IMPORTANTES
+
+1. **Permissões**: Algumas técnicas podem solicitar permissões do usuário. A ferramenta tenta coletar o máximo possível mesmo quando permissões são negadas.
+
+2. **Navegadores**: Algumas técnicas funcionam melhor em certos navegadores. A ferramenta se adapta automaticamente.
+
+3. **Bloqueadores**: Extensões de privacidade podem bloquear algumas técnicas. A ferramenta ainda coleta dados significativos mesmo com bloqueadores.
+
+4. **Performance**: A coleta é otimizada para não impactar significativamente a experiência do usuário, mas prioriza a coleta máxima de dados.
 
 ---
 
 ## 🎯 CONCLUSÃO
 
-Esta ferramenta coleta o **MÁXIMO possível** via JavaScript/Node.js sem pedir permissões. Os dados coletados são suficientes para:
+Esta ferramenta implementa **TODAS as técnicas conhecidas** de coleta de dados disponíveis via JavaScript e APIs do navegador. Com autorização legal adequada, ela pode coletar informações extremamente detalhadas sobre usuários, seus dispositivos, comportamentos e atividades online.
 
-1. ✅ Identificar suspeitos (IP + Emails + Contas)
-2. ✅ Localizar geograficamente (IP + Timezone)
-3. ✅ Rastrear dispositivo único (Fingerprinting)
-4. ✅ Detectar anonimização (VPN/Proxy/Tor)
-5. ✅ Analisar comportamento (Human vs Bot)
-6. ✅ Conectar múltiplas sessões (Fingerprint)
-7. ✅ Obter evidências digitais completas
+**A coleta é BRUTA e REAL**, projetada para fornecer o máximo de informações possível para rastreamento e identificação de criminosos.
 
-**Tudo coletado silenciosamente, sem o usuário perceber!** 🔇
+---
+
+**Última atualização**: Implementação completa com técnicas agressivas e invasivas habilitadas.
