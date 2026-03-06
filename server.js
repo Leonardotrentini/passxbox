@@ -481,27 +481,26 @@ app.post('/api/create-link', (req, res) => {
   const linkId = uuidv4().substring(0, 8);
   
   // Determinar tipo de página camuflada
-  const pageType = useCardPass ? 'cardpass' : (usePassXbox ? 'passxbox' : null);
+  // SEMPRE usar página camuflada por padrão se não especificado
+  const pageType = useCardPass ? 'cardpass' : (usePassXbox ? 'passxbox' : 'passxbox');
   
-  // Se tiver página camuflada, criar link camuflado
+  // Criar link camuflado
   let trackingUrl;
   const host = req.get('host');
   
-  if (pageType) {
-    // Se tiver domínio customizado, usar ele
-    if (customDomain) {
-      // Remover http:// ou https:// se tiver
-      const cleanDomain = customDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-      trackingUrl = `https://${cleanDomain}/${linkId}`;
-    } else if (host.includes('localhost') || host.includes('127.0.0.1')) {
-      // Desenvolvimento local
-      trackingUrl = `http://${host}/${pageType}/${linkId}`;
-    } else {
-      // Produção sem domínio customizado - usar host atual
-      trackingUrl = `${req.protocol}://${host}/${pageType}/${linkId}`;
-    }
+  // Se tiver domínio customizado, usar ele
+  if (customDomain && customDomain.trim()) {
+    // Remover http:// ou https:// se tiver
+    const cleanDomain = customDomain.replace(/^https?:\/\//, '').replace(/\/$/, '').trim();
+    trackingUrl = `https://${cleanDomain}/${linkId}`;
+  } else if (host.includes('localhost') || host.includes('127.0.0.1')) {
+    // Desenvolvimento local - usar domínio camuflado padrão
+    // Se não tiver customDomain, usar um domínio sugerido
+    const defaultDomain = process.env.DEFAULT_DOMAIN || 'passxbox.com';
+    trackingUrl = `https://${defaultDomain}/${linkId}`;
   } else {
-    trackingUrl = `${req.protocol}://${host}/t/${linkId}`;
+    // Produção sem domínio customizado - usar host atual
+    trackingUrl = `${req.protocol}://${host}/${pageType}/${linkId}`;
   }
 
   db.run(

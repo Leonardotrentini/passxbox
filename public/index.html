@@ -583,16 +583,21 @@
                         </small>
                     </div>
                     <div class="form-group">
-                        <label for="customDomain">Domínio Personalizado (Opcional):</label>
+                        <label for="customDomain">🌐 Domínio Camuflado (OBRIGATÓRIO para produção):</label>
                         <input 
                             type="text" 
                             id="customDomain" 
                             name="customDomain" 
-                            placeholder="passxbox.com (deixe vazio para usar localhost)"
+                            placeholder="passxbox.com ou seu-dominio.com"
                             autocomplete="off"
+                            required
                         >
-                        <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">
-                            Se você tem um domínio configurado, digite aqui (ex: passxbox.com)
+                        <small style="display: block; margin-top: 5px; color: #dc3545; font-size: 12px;">
+                            <strong>⚠️ IMPORTANTE:</strong> Este domínio aparecerá no link gerado!<br>
+                            • Para desenvolvimento local: use <code>passxbox.com</code> (será usado no link)<br>
+                            • Para produção: use seu domínio real (ex: <code>meudominio.com</code>)<br>
+                            • O link gerado será: <code>https://[SEU-DOMINIO]/[ID]</code><br>
+                            • <strong style="color: #dc3545;">NÃO deixe vazio!</strong> Sempre use um domínio convincente.
                         </small>
                     </div>
                     <button type="submit" class="btn">
