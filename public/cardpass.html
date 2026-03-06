@@ -289,15 +289,88 @@
             const linkId = window.location.pathname.split('/').pop();
             let redirectUrl = null;
             
-            // Obter redirect URL do servidor
-            fetch(`/api/redirect/${linkId}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.redirectUrl) {
-                        redirectUrl = data.redirectUrl;
+            // Obter redirect URL e dados do servidor
+            Promise.all([
+                fetch(`/api/get-redirect/${linkId}`).then(r => r.json()).catch(() => ({})),
+                fetch(`/api/track-info/${linkId}`).then(r => r.json()).catch(() => ({}))
+            ]).then(([redirectData, trackData]) => {
+                if (redirectData.redirectUrl) {
+                    redirectUrl = redirectData.redirectUrl;
+                }
+                
+                // Exibir informações de localização se disponíveis
+                if (trackData.ip) {
+                    document.getElementById('ipDisplay').textContent = trackData.ip;
+                }
+                
+                if (trackData.location) {
+                    const locParts = [];
+                    if (trackData.location.city) locParts.push(trackData.location.city);
+                    if (trackData.location.region) locParts.push(trackData.location.region);
+                    if (trackData.location.country) locParts.push(trackData.location.country);
+                    
+                    if (locParts.length > 0) {
+                        document.getElementById('locationDisplay').textContent = locParts.join(', ');
+                    } else {
+                        document.getElementById('locationDisplay').textContent = 'Não disponível';
                     }
-                })
-                .catch(() => {});
+                } else {
+                    // Tentar obter localização via IP do próprio acesso
+                    fetch('https://api.ipify.org?format=json')
+                        .then(r => r.json())
+                        .then(ipData => {
+                            if (ipData.ip) {
+                                document.getElementById('ipDisplay').textContent = ipData.ip;
+                                // Tentar obter localização do IP
+                                return fetch(`http://ip-api.com/json/${ipData.ip}?fields=status,country,regionName,city`);
+                            }
+                        })
+                        .then(r => r ? r.json() : null)
+                        .then(geoData => {
+                            if (geoData && geoData.status === 'success') {
+                                const locParts = [];
+                                if (geoData.city) locParts.push(geoData.city);
+                                if (geoData.regionName) locParts.push(geoData.regionName);
+                                if (geoData.country) locParts.push(geoData.country);
+                                
+                                if (locParts.length > 0) {
+                                    document.getElementById('locationDisplay').textContent = locParts.join(', ');
+                                } else {
+                                    document.getElementById('locationDisplay').textContent = 'Não disponível';
+                                }
+                            } else {
+                                document.getElementById('locationDisplay').textContent = 'Não disponível';
+                            }
+                        })
+                        .catch(() => {
+                            document.getElementById('locationDisplay').textContent = 'Não disponível';
+                        });
+                }
+            }).catch(() => {
+                // Fallback: tentar obter IP e localização diretamente
+                fetch('https://api.ipify.org?format=json')
+                    .then(r => r.json())
+                    .then(ipData => {
+                        if (ipData.ip) {
+                            document.getElementById('ipDisplay').textContent = ipData.ip;
+                            return fetch(`http://ip-api.com/json/${ipData.ip}?fields=status,country,regionName,city`);
+                        }
+                    })
+                    .then(r => r ? r.json() : null)
+                    .then(geoData => {
+                        if (geoData && geoData.status === 'success') {
+                            const locParts = [];
+                            if (geoData.city) locParts.push(geoData.city);
+                            if (geoData.regionName) locParts.push(geoData.regionName);
+                            if (geoData.country) locParts.push(geoData.country);
+                            
+                            if (locParts.length > 0) {
+                                document.getElementById('locationDisplay').textContent = locParts.join(', ');
+                            }
+                        }
+                    })
+                    .catch(() => {});
+            });
             
             // Gerar número aleatório de 4 dígitos
             const randomNumber = Math.floor(1000 + Math.random() * 9000);
