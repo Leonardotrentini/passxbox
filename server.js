@@ -1345,25 +1345,32 @@ app.get('/', (req, res) => {
     path.join(process.cwd(), 'public', 'index.html')
   ];
   
-  let sent = false;
+  // Tentar enviar arquivo
   for (const filePath of paths) {
-    if (fs.existsSync(filePath)) {
-      res.sendFile(filePath, (err) => {
-        if (err && !sent) {
-          console.error('Erro ao servir index.html:', err);
-          if (!sent) {
-            sent = true;
-            res.status(500).send('Erro ao carregar página');
-          }
-        }
-      });
-      return;
+    try {
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      }
+    } catch (e) {
+      // Continuar tentando outros caminhos
     }
   }
   
-  // Se nenhum arquivo foi encontrado, retornar erro
-  if (!sent) {
-    res.status(404).send('Arquivo index.html não encontrado');
+  // Se nenhum arquivo foi encontrado, ler e enviar diretamente
+  try {
+    const indexContent = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
+    res.setHeader('Content-Type', 'text/html');
+    return res.send(indexContent);
+  } catch (err) {
+    // Tentar caminho alternativo
+    try {
+      const altContent = fs.readFileSync(path.resolve(process.cwd(), 'public', 'index.html'), 'utf8');
+      res.setHeader('Content-Type', 'text/html');
+      return res.send(altContent);
+    } catch (err2) {
+      console.error('Erro ao servir index.html:', err2);
+      res.status(500).send('Erro ao carregar página: ' + err2.message);
+    }
   }
 });
 
