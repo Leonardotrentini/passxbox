@@ -200,33 +200,73 @@ async function detectVPNProxy(ip) {
     // Ignorar erros de API
   }
 
-  // API 2: ip-api.com (gratuita) - Mais completa
+  // API 2: ip-api.com (gratuita) - Mais completa e confiável
   try {
+    // Campos: status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,query,proxy,hosting,mobile
     const ipApiData = await httpRequest(`http://ip-api.com/json/${ip}?fields=66846719`);
-    if (ipApiData.proxy === true || ipApiData.hosting === true) {
-      results.isProxy = ipApiData.proxy || false;
-      results.isVPN = ipApiData.hosting || false;
-      results.confidence += 40;
-      results.sources.push('ip-api.com');
-      results.details.isHosting = ipApiData.hosting || false;
+    
+    // Verificar campos diretos de proxy/hosting
+    if (ipApiData.proxy === true) {
+      results.isProxy = true;
+      results.confidence += 50;
+      results.sources.push('ip-api.com (proxy=true)');
     }
+    if (ipApiData.hosting === true) {
+      results.isVPN = true;
+      results.details.isHosting = true;
+      results.confidence += 50;
+      results.sources.push('ip-api.com (hosting=true)');
+    }
+    
+    // Verificar organização
     if (ipApiData.org) {
       const orgLower = ipApiData.org.toLowerCase();
       results.details.organization = ipApiData.org;
-      if (orgLower.includes('tor') || orgLower.includes('onion')) {
+      
+      // Verificar Tor
+      if (orgLower.includes('tor') || orgLower.includes('onion') || orgLower.includes('exit')) {
         results.isTor = true;
-        results.confidence += 50;
-      }
-      if (orgLower.includes('vpn') || orgLower.includes('proxy')) {
-        results.isVPN = orgLower.includes('vpn');
-        results.isProxy = orgLower.includes('proxy');
+        results.confidence += 60;
         results.provider = ipApiData.org;
       }
+      
+      // Verificar VPN/Proxy na organização
+      const hasVPNKeyword = vpnKeywords.some(keyword => orgLower.includes(keyword));
+      const hasKnownVPN = knownVPNProviders.some(provider => orgLower.includes(provider));
+      
+      if (hasVPNKeyword || hasKnownVPN) {
+        results.isVPN = true;
+        results.provider = ipApiData.org;
+        results.confidence += 40;
+        results.sources.push('ip-api.com (org analysis)');
+      }
+      
+      // Verificar proxy na organização
+      if (orgLower.includes('proxy') && !results.isVPN) {
+        results.isProxy = true;
+        results.provider = ipApiData.org;
+        results.confidence += 30;
+      }
     }
+    
+    // Verificar ISP
+    if (ipApiData.isp) {
+      const ispLower = ipApiData.isp.toLowerCase();
+      const hasVPNKeyword = vpnKeywords.some(keyword => ispLower.includes(keyword));
+      const hasKnownVPN = knownVPNProviders.some(provider => ispLower.includes(provider));
+      
+      if (hasVPNKeyword || hasKnownVPN) {
+        results.isVPN = true;
+        if (!results.provider) results.provider = ipApiData.isp;
+        results.confidence += 35;
+        results.sources.push('ip-api.com (isp analysis)');
+      }
+    }
+    
     if (ipApiData.as) results.details.asn = ipApiData.as;
     if (ipApiData.mobile) results.details.isMobile = true;
   } catch (e) {
-    // Ignorar erros de API
+    console.error('Erro na API ip-api.com:', e.message);
   }
 
   // API 3: ipinfo.io (gratuita, limitada)
