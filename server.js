@@ -27,7 +27,15 @@ app.use(express.static(publicPath, {
 }));
 
 // Inicializar banco de dados
-const db = new sqlite3.Database('./tracker.db');
+// Na Vercel, usar caminho temporário para evitar problemas de escrita
+const dbPath = process.env.VERCEL ? '/tmp/tracker.db' : './tracker.db';
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Erro ao conectar ao banco de dados:', err);
+  } else {
+    console.log('Banco de dados conectado:', dbPath);
+  }
+});
 
 // Criar tabelas
 db.serialize(() => {
