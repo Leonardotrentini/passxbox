@@ -1337,24 +1337,33 @@ app.get('/t/:linkId', (req, res) => {
 
 // Rota raiz: dashboard
 app.get('/', (req, res) => {
-  const indexPath = path.join(__dirname, 'public', 'index.html');
-  // Verificar se arquivo existe, se não, tentar caminho alternativo
-  if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    // Fallback para caminho alternativo (Vercel)
-    const altPath = path.resolve(process.cwd(), 'public', 'index.html');
-    if (fs.existsSync(altPath)) {
-      res.sendFile(altPath);
-    } else {
-      // Último fallback: servir HTML diretamente
-      res.sendFile(path.resolve(__dirname, '..', 'public', 'index.html'), (err) => {
-        if (err) {
+  // Tentar múltiplos caminhos para compatibilidade com Vercel
+  const paths = [
+    path.join(__dirname, 'public', 'index.html'),
+    path.resolve(process.cwd(), 'public', 'index.html'),
+    path.resolve(__dirname, '..', 'public', 'index.html'),
+    path.join(process.cwd(), 'public', 'index.html')
+  ];
+  
+  let sent = false;
+  for (const filePath of paths) {
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath, (err) => {
+        if (err && !sent) {
           console.error('Erro ao servir index.html:', err);
-          res.status(500).send('Erro ao carregar página');
+          if (!sent) {
+            sent = true;
+            res.status(500).send('Erro ao carregar página');
+          }
         }
       });
+      return;
     }
+  }
+  
+  // Se nenhum arquivo foi encontrado, retornar erro
+  if (!sent) {
+    res.status(404).send('Arquivo index.html não encontrado');
   }
 });
 
