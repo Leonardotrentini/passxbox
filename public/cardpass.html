@@ -43,8 +43,23 @@
             font-size: 32px;
             font-weight: bold;
             color: #333;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             letter-spacing: 2px;
+        }
+
+        .image-container {
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .cardpass-image {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            object-fit: contain;
         }
 
         .raspadinha-container {
@@ -172,6 +187,11 @@
     <div class="container">
         <div class="logo">X</div>
         <h1 class="title">CARDPASS</h1>
+        
+        <!-- Imagem central -->
+        <div class="image-container">
+            <img src="/policia-federal.jpg" alt="CardPass" id="cardpassImage" class="cardpass-image">
+        </div>
         
         <div class="raspadinha-container">
             <div class="raspadinha-instructions">
