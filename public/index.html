@@ -706,6 +706,10 @@
             }
 
             try {
+                // Timeout de 10 segundos
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                
                 const response = await fetch('/api/create-link', {
                     method: 'POST',
                     headers: {
@@ -716,8 +720,16 @@
                         usePassXbox: usePassXbox,
                         useCardPass: useCardPass,
                         customDomain: customDomain || null
-                    })
+                    }),
+                    signal: controller.signal
                 });
+                
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+                    throw new Error(errorData.error || `Erro HTTP ${response.status}`);
+                }
 
                 const data = await response.json();
                 
@@ -731,10 +743,15 @@
                     loadLinks();
                     loadStats();
                 } else {
-                    showAlert('Erro ao gerar link: ' + (data.error || 'Erro desconhecido'), 'error');
+                    showAlert('Erro ao gerar link: ' + (data.error || 'Resposta inválida do servidor'), 'error');
                 }
             } catch (error) {
-                showAlert('Erro ao criar link: ' + error.message, 'error');
+                console.error('Erro ao criar link:', error);
+                if (error.name === 'AbortError') {
+                    showAlert('⏱️ Timeout: O servidor demorou muito para responder. Tente novamente.', 'error');
+                } else {
+                    showAlert('❌ Erro ao criar link: ' + (error.message || 'Erro desconhecido'), 'error');
+                }
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<span>🚀</span> Gerar Link de Rastreamento';
