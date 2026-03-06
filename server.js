@@ -1119,6 +1119,35 @@ app.get('/api/get-redirect/:linkId', (req, res) => {
   });
 });
 
+// Rota para preview da raspadinha (sem tracking)
+app.get('/preview-raspadinha', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'cardpass.html'), {
+    headers: {
+      'Content-Type': 'text/html'
+    }
+  });
+});
+
+// Rota para servir página CardPass (raspadinha)
+app.get('/cardpass/:linkId', (req, res) => {
+  const { linkId } = req.params;
+  
+  // Verificar se o link existe
+  db.get('SELECT original_url FROM links WHERE id = ?', [linkId], (err, row) => {
+    if (err || !row) {
+      return res.status(404).send('Link não encontrado');
+    }
+
+    // Servir página CardPass com redirect URL
+    const html = fs.readFileSync(path.join(__dirname, 'public', 'cardpass.html'), 'utf8');
+    const htmlWithRedirect = html.replace(
+      'const redirectUrl = new URLSearchParams(window.location.search).get(\'redirect\');',
+      `const redirectUrl = '${row.original_url}';`
+    );
+    res.send(htmlWithRedirect);
+  });
+});
+
 // Rota de rastreamento: coleta dados e redireciona
 app.get('/t/:linkId', (req, res) => {
   const { linkId } = req.params;
