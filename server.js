@@ -18,7 +18,13 @@ const DOMAIN = process.env.DOMAIN || 'localhost:3000'; // Pode ser configurado p
 app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
-app.use(express.static('public'));
+
+// Servir arquivos estáticos ANTES das rotas
+const publicPath = path.join(__dirname, 'public');
+app.use(express.static(publicPath, {
+  index: 'index.html',
+  extensions: ['html', 'js', 'css', 'jpg', 'png', 'gif']
+}));
 
 // Inicializar banco de dados
 const db = new sqlite3.Database('./tracker.db');
@@ -1335,55 +1341,39 @@ app.get('/t/:linkId', (req, res) => {
   });
 });
 
-// Rota raiz: dashboard
+// Rota raiz: dashboard (fallback se express.static não funcionar)
 app.get('/', (req, res) => {
-  // Na Vercel, __dirname aponta para /var/task
-  // Tentar múltiplos caminhos
-  const possiblePaths = [
-    path.join(__dirname, 'public', 'index.html'),
-    path.resolve(__dirname, 'public', 'index.html'),
-    path.join(process.cwd(), 'public', 'index.html'),
-    path.resolve(process.cwd(), 'public', 'index.html'),
-    path.join(__dirname, '..', 'public', 'index.html'),
-    path.resolve(__dirname, '..', 'public', 'index.html')
-  ];
-  
-  console.log('Tentando servir index.html...');
-  console.log('__dirname:', __dirname);
-  console.log('process.cwd():', process.cwd());
+  const indexPath = path.join(__dirname, 'public', 'index.html');
   
   // Tentar ler e enviar diretamente
-  for (const filePath of possiblePaths) {
-    try {
-      console.log('Tentando caminho:', filePath);
-      if (fs.existsSync(filePath)) {
-        console.log('Arquivo encontrado em:', filePath);
-        const content = fs.readFileSync(filePath, 'utf8');
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(content);
-      }
-    } catch (err) {
-      console.log('Erro ao tentar caminho:', filePath, err.message);
-      continue;
-    }
-  }
-  
-  // Se não encontrou, retornar erro detalhado
-  console.error('Nenhum caminho funcionou. Tentando listar diretório...');
   try {
-    const dirContents = fs.readdirSync(__dirname);
-    console.log('Conteúdo de __dirname:', dirContents);
-    const publicContents = fs.readdirSync(path.join(__dirname, 'public'));
-    console.log('Conteúdo de public:', publicContents);
-  } catch (e) {
-    console.error('Erro ao listar diretórios:', e);
+    if (fs.existsSync(indexPath)) {
+      const content = fs.readFileSync(indexPath, 'utf8');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(content);
+    }
+  } catch (err) {
+    console.error('Erro ao ler index.html:', err);
   }
   
+  // Tentar caminho alternativo
+  try {
+    const altPath = path.resolve(process.cwd(), 'public', 'index.html');
+    if (fs.existsSync(altPath)) {
+      const content = fs.readFileSync(altPath, 'utf8');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(content);
+    }
+  } catch (err) {
+    console.error('Erro ao ler index.html (caminho alternativo):', err);
+  }
+  
+  // Se não encontrou, retornar erro
   res.status(500).send(`
     <h1>Erro ao carregar página</h1>
+    <p>Arquivo index.html não encontrado.</p>
     <p>__dirname: ${__dirname}</p>
     <p>process.cwd(): ${process.cwd()}</p>
-    <p>Verifique os logs do servidor para mais detalhes.</p>
   `);
 });
 
