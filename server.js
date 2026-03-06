@@ -514,13 +514,18 @@ app.post('/api/create-link', (req, res) => {
     [linkId, url],
     function(err) {
       if (err) {
-        return res.status(500).json({ error: 'Erro ao criar link' });
+        console.error('Erro ao inserir link no banco:', err);
+        return res.status(500).json({ error: 'Erro ao criar link: ' + err.message });
       }
+      
+      console.log('Link criado com sucesso:', { linkId, trackingUrl, originalUrl: url });
+      
       res.json({ 
         linkId, 
         trackingUrl,
         originalUrl: url,
-        isPassXbox: usePassXbox || false
+        isPassXbox: usePassXbox || false,
+        isCardPass: useCardPass || false
       });
     }
   );
