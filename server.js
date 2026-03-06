@@ -149,6 +149,7 @@ async function detectVPNProxy(ip) {
     provider: null,
     confidence: 0,
     sources: [],
+    checkedAt: new Date().toISOString(),
     details: {
       organization: null,
       asn: null,
@@ -159,6 +160,18 @@ async function detectVPNProxy(ip) {
       isResidential: false
     }
   };
+
+  // Lista de provedores VPN conhecidos (expansão)
+  const knownVPNProviders = [
+    'nordvpn', 'expressvpn', 'surfshark', 'cyberghost', 'private internet access',
+    'pia', 'protonvpn', 'tunnelbear', 'windscribe', 'vyprvpn', 'hotspot shield',
+    'ipvanish', 'purevpn', 'hide.me', 'zenmate', 'buffered', 'safervpn',
+    'tor guard', 'vpn unlimited', 'strongvpn', 'hidemyass', 'hma',
+    'mullvad', 'ivpn', 'perfect privacy', 'airvpn', 'ovpn', 'azirevpn'
+  ];
+
+  // Lista de palavras-chave de proxy/VPN
+  const vpnKeywords = ['vpn', 'proxy', 'anonymizer', 'anonymizing', 'privacy', 'secure tunnel'];
 
   // API 1: ipapi.co (gratuita, limitada)
   try {
@@ -239,20 +252,66 @@ async function detectVPNProxy(ip) {
   // Verificar padrões conhecidos via geoip
   const geo = geoip.lookup(ip);
   if (geo) {
-    // Verificar se IP está em range conhecido de datacenters
-    // Lista de ASNs conhecidos de VPN/Proxy (exemplos)
-    const vpnAsns = ['AS20473', 'AS32934', 'AS60068']; // Exemplos
     // Verificar organização conhecida
     if (geo.org) {
       const orgLower = geo.org.toLowerCase();
+      
+      // Verificar VPN/Proxy na organização geoip
+      const hasVPNKeyword = vpnKeywords.some(keyword => orgLower.includes(keyword));
+      const hasKnownVPN = knownVPNProviders.some(provider => orgLower.includes(provider));
+      
+      if (hasVPNKeyword || hasKnownVPN) {
+        results.isVPN = true;
+        if (!results.provider) results.provider = geo.org;
+        results.confidence += 25;
+        results.sources.push('geoip-lite (org analysis)');
+      }
+      
+      // Verificar datacenters conhecidos (pode indicar VPN)
       if (orgLower.includes('amazon') || orgLower.includes('google') || 
           orgLower.includes('microsoft') || orgLower.includes('digitalocean') ||
-          orgLower.includes('linode') || orgLower.includes('vultr')) {
+          orgLower.includes('linode') || orgLower.includes('vultr') ||
+          orgLower.includes('ovh') || orgLower.includes('hetzner') ||
+          orgLower.includes('aws') || orgLower.includes('azure')) {
         results.details.isDatacenter = true;
         results.details.isHosting = true;
-        results.confidence += 15;
+        // Datacenter pode indicar VPN, mas não é certeza
+        if (results.confidence < 30) {
+          results.confidence += 10;
+        }
       }
     }
+  }
+  
+  // API 4: ipapi.co com verificação adicional
+  try {
+    const ipapiData2 = await httpRequest(`https://ipapi.co/${ip}/json/`);
+    if (ipapiData2.org) {
+      const orgLower = ipapiData2.org.toLowerCase();
+      const hasVPNKeyword = vpnKeywords.some(keyword => orgLower.includes(keyword));
+      const hasKnownVPN = knownVPNProviders.some(provider => orgLower.includes(provider));
+      
+      if (hasVPNKeyword || hasKnownVPN) {
+        results.isVPN = true;
+        if (!results.provider) results.provider = ipapiData2.org;
+        results.confidence += 20;
+        if (!results.sources.includes('ipapi.co')) {
+          results.sources.push('ipapi.co (org analysis)');
+        }
+      }
+    }
+  } catch (e) {
+    // Ignorar erros
+  }
+  
+  // Normalizar confiança (máximo 100)
+  results.confidence = Math.min(results.confidence, 100);
+  
+  // Se confiança for alta, garantir que está marcado
+  if (results.confidence >= 50 && !results.isVPN && !results.isProxy && !results.isTor) {
+    // Se tem alta confiança mas não detectou, pode ser VPN/Proxy não identificado
+    results.isVPN = true; // Assumir VPN se confiança alta
+    results.provider = results.details.organization || 'Unknown VPN/Proxy';
   }
 
   // Análise de padrões no IP
@@ -581,15 +640,40 @@ app.post('/api/track/:linkId', async (req, res) => {
     device: agent.device.family
   };
 
-  // Detectar VPN/Proxy
-  let vpnProxy = { isVPN: false, isProxy: false, isTor: false, provider: null, confidence: 0 };
-  if (ip && ip !== '::1' && ip !== '127.0.0.1') {
+  // Detectar VPN/Proxy (SEMPRE tentar, mesmo para localhost)
+  let vpnProxy = { isVPN: false, isProxy: false, isTor: false, provider: null, confidence: 0, sources: [], details: {} };
+  
+  // Se for localhost, tentar obter IP público primeiro
+  let checkIP = ip;
+  if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost') {
     try {
-      vpnProxy = await detectVPNProxy(ip);
+      const publicIPData = await httpRequest('https://api.ipify.org?format=json');
+      if (publicIPData && publicIPData.ip) {
+        checkIP = publicIPData.ip;
+        console.log('IP público obtido para verificação VPN/Proxy:', checkIP);
+      }
+    } catch (e) {
+      console.log('Não foi possível obter IP público para verificação VPN/Proxy');
+    }
+  }
+  
+  // Sempre tentar detectar VPN/Proxy
+  if (checkIP && checkIP !== '::1' && checkIP !== '127.0.0.1' && checkIP !== 'localhost') {
+    try {
+      vpnProxy = await detectVPNProxy(checkIP);
+      data.network = data.network || {};
       data.network.vpnProxy = vpnProxy;
+      console.log('VPN/Proxy detectado:', JSON.stringify(vpnProxy, null, 2));
     } catch (e) {
       console.error('Erro ao detectar VPN/Proxy:', e);
+      // Mesmo com erro, manter estrutura básica
+      data.network = data.network || {};
+      data.network.vpnProxy = vpnProxy;
     }
+  } else {
+    // Mesmo sem IP válido, manter estrutura
+    data.network = data.network || {};
+    data.network.vpnProxy = vpnProxy;
   }
 
   // Calcular score de risco (EXPANDIDO)
