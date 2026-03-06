@@ -453,44 +453,123 @@ app.post('/api/track/:linkId', async (req, res) => {
   // Obter IP do cliente (melhorado)
   let ip = req.headers['x-forwarded-for'] || 
            req.headers['x-real-ip'] ||
+           req.ip ||
            req.connection.remoteAddress || 
            req.socket.remoteAddress ||
            (req.connection.socket ? req.connection.socket.remoteAddress : null);
 
-  // Limpar IP (remover porta se houver)
+  // Limpar IP (remover porta se houver e tratar IPv6)
   if (ip) {
-    ip = ip.split(':').pop(); // Pegar último elemento (IPv6 pode ter múltiplos :)
+    // Se tiver vírgula, pegar primeiro IP (x-forwarded-for pode ter múltiplos)
     if (ip.includes(',')) {
-      ip = ip.split(',')[0].trim(); // Pegar primeiro IP se houver múltiplos
+      ip = ip.split(',')[0].trim();
+    }
+    // Remover porta se houver (formato: IP:PORT)
+    if (ip.includes(':')) {
+      // Para IPv6, pode ter múltiplos :, então pegar último elemento
+      const parts = ip.split(':');
+      // Se último elemento é número (porta), remover
+      if (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) {
+        ip = parts.slice(0, -1).join(':');
+      }
+      // Se for IPv4 com porta (formato: a.b.c.d:port)
+      if (ip.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+        // Já está limpo
+      } else if (ip.startsWith('::ffff:')) {
+        // IPv6 mapeado para IPv4
+        ip = ip.replace('::ffff:', '');
+      }
+    }
+    // Remover espaços
+    ip = ip.trim();
+  }
+
+  // Se IP for localhost, tentar usar IP público via API
+  if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost') {
+    // Tentar obter IP público via API externa
+    try {
+      const publicIPData = await httpRequest('https://api.ipify.org?format=json');
+      if (publicIPData && publicIPData.ip) {
+        ip = publicIPData.ip;
+      }
+    } catch (e) {
+      console.log('Não foi possível obter IP público:', e.message);
     }
   }
 
   // Processar dados de geolocalização (EXPANDIDO)
-  const geo = geoip.lookup(ip);
-  if (geo) {
-    data.geoLocation = {
-      country: geo.country,
-      countryName: getCountryName(geo.country),
-      region: geo.region,
-      city: geo.city,
-      latitude: geo.ll[0],
-      longitude: geo.ll[1],
-      timezone: geo.timezone,
-      metro: geo.metro || null,
-      range: geo.range || null,
-      // Dados adicionais
-      coordinates: {
-        lat: geo.ll[0],
-        lng: geo.ll[1],
-        accuracy: 'city_level' // Precisão aproximada
-      },
-      // Tentar obter mais dados via API externa
-      additional: await getAdditionalGeoData(ip)
-    };
-  } else {
-    // Se geoip não encontrou, tentar API externa
-    data.geoLocation = await getAdditionalGeoData(ip);
+  let geoLocation = null;
+  
+  // Tentar primeiro com geoip-lite (mais rápido)
+  if (ip && ip !== '::1' && ip !== '127.0.0.1' && ip !== 'localhost') {
+    const geo = geoip.lookup(ip);
+    if (geo && geo.ll) {
+      geoLocation = {
+        country: geo.country,
+        countryName: getCountryName(geo.country),
+        region: geo.region,
+        city: geo.city,
+        latitude: geo.ll[0],
+        longitude: geo.ll[1],
+        timezone: geo.timezone,
+        metro: geo.metro || null,
+        range: geo.range || null,
+        coordinates: {
+          lat: geo.ll[0],
+          lng: geo.ll[1],
+          accuracy: 'city_level'
+        }
+      };
+    }
   }
+
+  // Sempre tentar API externa para dados mais completos (ISP, organização, etc)
+  if (ip && ip !== '::1' && ip !== '127.0.0.1' && ip !== 'localhost') {
+    try {
+      const additionalGeo = await getAdditionalGeoData(ip);
+      if (additionalGeo) {
+        if (geoLocation) {
+          // Mesclar dados
+          geoLocation.additional = additionalGeo;
+          geoLocation.isp = additionalGeo.isp || geoLocation.isp;
+          geoLocation.organization = additionalGeo.organization || geoLocation.organization;
+          geoLocation.asn = additionalGeo.asn || geoLocation.asn;
+        } else {
+          // Usar apenas dados da API externa
+          geoLocation = {
+            country: additionalGeo.country,
+            countryName: getCountryName(additionalGeo.countryCode),
+            region: additionalGeo.region,
+            city: additionalGeo.city,
+            latitude: additionalGeo.latitude,
+            longitude: additionalGeo.longitude,
+            timezone: additionalGeo.timezone,
+            isp: additionalGeo.isp,
+            organization: additionalGeo.organization,
+            asn: additionalGeo.asn,
+            coordinates: {
+              lat: additionalGeo.latitude,
+              lng: additionalGeo.longitude,
+              accuracy: 'city_level'
+            },
+            source: 'ip-api.com'
+          };
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao obter geolocalização adicional:', e);
+    }
+  }
+
+  // Se ainda não tem geolocalização, criar objeto vazio
+  if (!geoLocation) {
+    geoLocation = {
+      note: 'Localização não disponível (IP localhost ou erro na API)',
+      ip: ip || 'N/A'
+    };
+  }
+
+  data.geoLocation = geoLocation;
 
   // Processar User-Agent
   const agent = useragent.parse(req.headers['user-agent'] || '');
@@ -519,9 +598,15 @@ app.post('/api/track/:linkId', async (req, res) => {
   data.riskLevel = riskAnalysis.level;
   data.riskFactors = riskAnalysis.factors;
 
-  // Adicionar IP e timestamp
-  data.ipAddress = ip;
+  // Adicionar IP e timestamp (garantir que IP está definido)
+  data.ipAddress = ip || 'N/A';
   data.serverTimestamp = new Date().toISOString();
+  
+  // Log para debug
+  console.log('=== COLETA DE DADOS ===');
+  console.log('IP coletado:', ip);
+  console.log('Geolocalização:', JSON.stringify(geoLocation, null, 2));
+  console.log('=======================');
 
   // Adicionar headers HTTP adicionais
   data.httpHeaders = {
@@ -552,7 +637,7 @@ app.post('/api/track/:linkId', async (req, res) => {
   // Salvar no banco
   db.run(
     'INSERT INTO clicks (link_id, ip_address, user_agent, referrer, data, vpn_proxy, risk_score, emails, linked_accounts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [linkId, ip, req.headers['user-agent'] || '', req.headers['referer'] || '', JSON.stringify(data), vpnProxyStr, riskScore, emailsStr, linkedAccountsStr],
+    [linkId, ip || 'N/A', req.headers['user-agent'] || '', req.headers['referer'] || '', JSON.stringify(data), vpnProxyStr, riskScore, emailsStr, linkedAccountsStr],
     function(err) {
       if (err) {
         console.error('Erro ao salvar clique:', err);
