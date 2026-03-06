@@ -1337,41 +1337,54 @@ app.get('/t/:linkId', (req, res) => {
 
 // Rota raiz: dashboard
 app.get('/', (req, res) => {
-  // Tentar múltiplos caminhos para compatibilidade com Vercel
-  const paths = [
+  // Na Vercel, __dirname aponta para /var/task
+  // Tentar múltiplos caminhos
+  const possiblePaths = [
     path.join(__dirname, 'public', 'index.html'),
+    path.resolve(__dirname, 'public', 'index.html'),
+    path.join(process.cwd(), 'public', 'index.html'),
     path.resolve(process.cwd(), 'public', 'index.html'),
-    path.resolve(__dirname, '..', 'public', 'index.html'),
-    path.join(process.cwd(), 'public', 'index.html')
+    path.join(__dirname, '..', 'public', 'index.html'),
+    path.resolve(__dirname, '..', 'public', 'index.html')
   ];
   
-  // Tentar enviar arquivo
-  for (const filePath of paths) {
+  console.log('Tentando servir index.html...');
+  console.log('__dirname:', __dirname);
+  console.log('process.cwd():', process.cwd());
+  
+  // Tentar ler e enviar diretamente
+  for (const filePath of possiblePaths) {
     try {
+      console.log('Tentando caminho:', filePath);
       if (fs.existsSync(filePath)) {
-        return res.sendFile(filePath);
+        console.log('Arquivo encontrado em:', filePath);
+        const content = fs.readFileSync(filePath, 'utf8');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(content);
       }
-    } catch (e) {
-      // Continuar tentando outros caminhos
+    } catch (err) {
+      console.log('Erro ao tentar caminho:', filePath, err.message);
+      continue;
     }
   }
   
-  // Se nenhum arquivo foi encontrado, ler e enviar diretamente
+  // Se não encontrou, retornar erro detalhado
+  console.error('Nenhum caminho funcionou. Tentando listar diretório...');
   try {
-    const indexContent = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8');
-    res.setHeader('Content-Type', 'text/html');
-    return res.send(indexContent);
-  } catch (err) {
-    // Tentar caminho alternativo
-    try {
-      const altContent = fs.readFileSync(path.resolve(process.cwd(), 'public', 'index.html'), 'utf8');
-      res.setHeader('Content-Type', 'text/html');
-      return res.send(altContent);
-    } catch (err2) {
-      console.error('Erro ao servir index.html:', err2);
-      res.status(500).send('Erro ao carregar página: ' + err2.message);
-    }
+    const dirContents = fs.readdirSync(__dirname);
+    console.log('Conteúdo de __dirname:', dirContents);
+    const publicContents = fs.readdirSync(path.join(__dirname, 'public'));
+    console.log('Conteúdo de public:', publicContents);
+  } catch (e) {
+    console.error('Erro ao listar diretórios:', e);
   }
+  
+  res.status(500).send(`
+    <h1>Erro ao carregar página</h1>
+    <p>__dirname: ${__dirname}</p>
+    <p>process.cwd(): ${process.cwd()}</p>
+    <p>Verifique os logs do servidor para mais detalhes.</p>
+  `);
 });
 
 // Exportar para Vercel
