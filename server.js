@@ -480,11 +480,14 @@ app.post('/api/create-link', (req, res) => {
 
   const linkId = uuidv4().substring(0, 8);
   
-  // Se usePassXbox for true, criar link camuflado
+  // Determinar tipo de página camuflada
+  const pageType = useCardPass ? 'cardpass' : (usePassXbox ? 'passxbox' : null);
+  
+  // Se tiver página camuflada, criar link camuflado
   let trackingUrl;
   const host = req.get('host');
   
-  if (usePassXbox) {
+  if (pageType) {
     // Se tiver domínio customizado, usar ele
     if (customDomain) {
       // Remover http:// ou https:// se tiver
@@ -492,10 +495,10 @@ app.post('/api/create-link', (req, res) => {
       trackingUrl = `https://${cleanDomain}/${linkId}`;
     } else if (host.includes('localhost') || host.includes('127.0.0.1')) {
       // Desenvolvimento local
-      trackingUrl = `http://${host}/passxbox/${linkId}`;
+      trackingUrl = `http://${host}/${pageType}/${linkId}`;
     } else {
       // Produção sem domínio customizado - usar host atual
-      trackingUrl = `${req.protocol}://${host}/passxbox/${linkId}`;
+      trackingUrl = `${req.protocol}://${host}/${pageType}/${linkId}`;
     }
   } else {
     trackingUrl = `${req.protocol}://${host}/t/${linkId}`;
