@@ -472,7 +472,7 @@ function calculateRiskScore(data, vpnProxy) {
 
 // API: Criar novo link de rastreamento
 app.post('/api/create-link', (req, res) => {
-  const { url, usePassXbox, customDomain } = req.body;
+  const { url, usePassXbox, useCardPass, customDomain } = req.body;
   
   if (!url) {
     return res.status(400).json({ error: 'URL é obrigatória' });

