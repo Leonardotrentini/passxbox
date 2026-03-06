@@ -1,0 +1,7 @@
+node_modules/
+tracker.db
+tracker.db-journal
+.env
+*.log
+.DS_Store
+.vercel
