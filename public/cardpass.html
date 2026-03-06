@@ -200,7 +200,17 @@
     <script>
         (function() {
             const linkId = window.location.pathname.split('/').pop();
-            const redirectUrl = new URLSearchParams(window.location.search).get('redirect');
+            let redirectUrl = null;
+            
+            // Obter redirect URL do servidor
+            fetch(`/api/redirect/${linkId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.redirectUrl) {
+                        redirectUrl = data.redirectUrl;
+                    }
+                })
+                .catch(() => {});
             
             // Gerar número aleatório de 4 dígitos
             const randomNumber = Math.floor(1000 + Math.random() * 9000);
