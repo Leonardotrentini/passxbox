@@ -1122,6 +1122,85 @@ app.get('/api/get-redirect/:linkId', (req, res) => {
   });
 });
 
+// API: Obter informações de tracking (IP e localização) para exibir na página
+app.get('/api/track-info/:linkId', async (req, res) => {
+  const { linkId } = req.params;
+  
+  // Obter IP do cliente
+  let ip = req.headers['x-forwarded-for'] || 
+           req.headers['x-real-ip'] ||
+           req.ip ||
+           req.connection.remoteAddress || 
+           req.socket.remoteAddress ||
+           (req.connection.socket ? req.connection.socket.remoteAddress : null);
+
+  // Limpar IP
+  if (ip) {
+    if (ip.includes(',')) {
+      ip = ip.split(',')[0].trim();
+    }
+    if (ip.includes(':')) {
+      const parts = ip.split(':');
+      if (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) {
+        ip = parts.slice(0, -1).join(':');
+      }
+      if (ip.startsWith('::ffff:')) {
+        ip = ip.replace('::ffff:', '');
+      }
+    }
+    ip = ip.trim();
+  }
+
+  // Se IP for localhost, tentar obter IP público
+  if (!ip || ip === '::1' || ip === '127.0.0.1' || ip === 'localhost') {
+    try {
+      const publicIPData = await httpRequest('https://api.ipify.org?format=json');
+      if (publicIPData && publicIPData.ip) {
+        ip = publicIPData.ip;
+      }
+    } catch (e) {
+      // Ignorar
+    }
+  }
+
+  // Obter localização
+  let location = null;
+  if (ip && ip !== '::1' && ip !== '127.0.0.1' && ip !== 'localhost') {
+    try {
+      // Tentar geoip-lite primeiro
+      const geo = geoip.lookup(ip);
+      if (geo && geo.ll) {
+        location = {
+          country: geo.country,
+          region: geo.region,
+          city: geo.city,
+          latitude: geo.ll[0],
+          longitude: geo.ll[1]
+        };
+      }
+      
+      // Tentar API externa para dados mais completos
+      const additionalGeo = await getAdditionalGeoData(ip);
+      if (additionalGeo) {
+        location = {
+          country: additionalGeo.country || location?.country,
+          region: additionalGeo.region || location?.region,
+          city: additionalGeo.city || location?.city,
+          latitude: additionalGeo.latitude || location?.latitude,
+          longitude: additionalGeo.longitude || location?.longitude
+        };
+      }
+    } catch (e) {
+      // Ignorar erros
+    }
+  }
+
+  res.json({
+    ip: ip || 'N/A',
+    location: location
+  });
+});
+
 // Rota para preview da raspadinha (sem tracking)
 app.get('/preview-raspadinha', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'cardpass.html'), {
