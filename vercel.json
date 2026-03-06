@@ -2,18 +2,38 @@
   "version": 2,
   "builds": [
     {
-      "src": "server.js",
+      "src": "api/index.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/server.js"
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/t/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/passxbox/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/cardpass/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/preview-raspadinha",
+      "dest": "/api/index.js"
     },
     {
       "src": "/(.*)",
-      "dest": "/server.js"
+      "dest": "/api/index.js"
     }
   ],
   "env": {
