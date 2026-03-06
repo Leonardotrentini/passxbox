@@ -688,7 +688,9 @@
             submitBtn.disabled = true;
             submitBtn.textContent = '⏳ Gerando...';
 
-            const usePassXbox = document.getElementById('usePassXbox').checked;
+            const pageType = document.querySelector('input[name="pageType"]:checked')?.value || 'passxbox';
+            const usePassXbox = pageType === 'passxbox';
+            const useCardPass = pageType === 'cardpass';
             const customDomain = document.getElementById('customDomain').value.trim();
 
             try {
@@ -700,6 +702,7 @@
                     body: JSON.stringify({ 
                         url: finalUrl, 
                         usePassXbox: usePassXbox,
+                        useCardPass: useCardPass,
                         customDomain: customDomain || null
                     })
                 });
