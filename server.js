@@ -1358,6 +1358,40 @@ app.get('/t/:linkId', (req, res) => {
   });
 });
 
+// API: Limpar TODOS os dados (apagar tudo)
+app.post('/api/clear-all', (req, res) => {
+  db.serialize(() => {
+    db.run('DELETE FROM clicks', (err) => {
+      if (err) {
+        console.error('Erro ao limpar clicks:', err);
+        return res.status(500).json({ error: 'Erro ao limpar clicks' });
+      }
+      
+      db.run('DELETE FROM emails', (err) => {
+        if (err) {
+          console.error('Erro ao limpar emails:', err);
+        }
+        
+        db.run('DELETE FROM linked_accounts', (err) => {
+          if (err) {
+            console.error('Erro ao limpar linked_accounts:', err);
+          }
+          
+          db.run('DELETE FROM links', (err) => {
+            if (err) {
+              console.error('Erro ao limpar links:', err);
+              return res.status(500).json({ error: 'Erro ao limpar links' });
+            }
+            
+            console.log('TODOS os dados foram apagados!');
+            res.json({ success: true, message: 'Todos os dados foram apagados com sucesso!' });
+          });
+        });
+      });
+    });
+  });
+});
+
 // Rota raiz: dashboard (fallback se express.static não funcionar)
 app.get('/', (req, res) => {
   const indexPath = path.join(__dirname, 'public', 'index.html');
