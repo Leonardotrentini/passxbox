@@ -1187,6 +1187,38 @@
                 closeModal();
             }
         });
+        // Função para limpar todos os dados
+        async function clearAllData() {
+            if (!confirm('⚠️ ATENÇÃO: Isso vai apagar TODOS os links, cliques e dados coletados!\n\nTem certeza que deseja continuar?')) {
+                return;
+            }
+
+            if (!confirm('⚠️ ÚLTIMA CONFIRMAÇÃO: Todos os dados serão PERMANENTEMENTE apagados!\n\nTem certeza absoluta?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/clear-all', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('✅ Todos os dados foram apagados com sucesso!', 'success');
+                    loadLinks();
+                    loadStats();
+                } else {
+                    showAlert('❌ Erro ao apagar dados: ' + (data.error || 'Erro desconhecido'), 'error');
+                }
+            } catch (error) {
+                console.error('Erro ao limpar dados:', error);
+                showAlert('❌ Erro ao apagar dados: ' + error.message, 'error');
+            }
+        }
     </script>
 </body>
 </html>
