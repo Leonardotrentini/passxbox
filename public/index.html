@@ -37,6 +37,27 @@
             font-size: 1.8em;
         }
 
+        .navbar-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
         .navbar-stats {
             display: flex;
             gap: 30px;
@@ -512,20 +533,25 @@
     <nav class="navbar">
         <div class="navbar-content">
             <h1>🔗 Link Tracker Avançado</h1>
-            <div class="navbar-stats">
-                <div class="stat-item">
-                    <div class="stat-value" id="totalLinks">0</div>
-                    <div class="stat-label">Links</div>
+                <div style="display: flex; gap: 20px; align-items: center;">
+                    <div class="navbar-stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalLinks">0</div>
+                            <div class="stat-label">Links</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalClicks">0</div>
+                            <div class="stat-label">Cliques</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="uniqueIPs">0</div>
+                            <div class="stat-label">IPs Únicos</div>
+                        </div>
+                    </div>
+                    <button class="btn-danger" onclick="clearAllData()" title="Apagar todos os dados">
+                        🗑️ Limpar Tudo
+                    </button>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="totalClicks">0</div>
-                    <div class="stat-label">Cliques</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="uniqueIPs">0</div>
-                    <div class="stat-label">IPs Únicos</div>
-                </div>
-            </div>
         </div>
     </nav>
 
